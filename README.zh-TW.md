@@ -66,7 +66,7 @@ xixi-beauty-cam 是 PWA。第一次開啟時 service worker 會把整個 app（�
 
 手機上按快門會先顯示預覽，有「分享／存到照片」（開系統分享面板；iPhone 選「儲存影像」就存進相簿）與「下載」。快門右邊的 ⟲ 切換前後鏡頭。預覽連續 3 秒低於 24 fps 時會自動一級一級降低畫質（先減少磨皮取樣數，再改成每 2 或 3 幀偵測一次人臉），目前等級顯示在 ⋯ 選單的 fps 面板，也可以在那裡固定等級。
 
-要上線就把 `app/` 資料夾放到任何靜態主機，見 [docs/deploy.md](docs/deploy.md)。部署到 Cloudflare Pages 有現成腳本：第一次設定好後，`deploy/cloudflare/deploy.sh` 一行指令就會檢查、測試並部署，見 [deploy/cloudflare/README.md](deploy/cloudflare/README.md)。
+要上線就把 `app/` 資料夾放到任何靜態主機，見 [docs/deploy.md](docs/deploy.md)。以 Cloudflare Pages 為例：輸出資料夾設成 `app`、不需要建置指令，或直接上傳 `app/`。
 
 ## 自製濾鏡與美顏
 

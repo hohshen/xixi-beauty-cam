@@ -45,9 +45,6 @@ jobs:
       - name: Lint (ESLint + Prettier)
         run: npm run lint
 
-      - name: Lint the deploy script (ShellCheck, preinstalled on ubuntu-latest)
-        run: npm run lint:sh
-
   commitlint:
     name: Commit messages (Conventional Commits)
     if: github.event_name == 'pull_request'

@@ -14,8 +14,6 @@
 
 Cloudflare Pages reads `app/_headers` for the response headers, so no extra configuration is needed beyond the build settings.
 
-**Recommended: the deploy script.** [`deploy/cloudflare/`](../deploy/cloudflare/README.md) has a `wrangler.toml` and `deploy.sh`. After a one-time setup (install Node, `npx wrangler@4.78.0 login`, `npx wrangler@4.78.0 pages project create xixi-beauty-cam --production-branch main`), every update is one command from the repository root: `deploy/cloudflare/deploy.sh`. It checks for a clean working tree, runs the tests, lint and preset validation, checks that `CACHE_VERSION` in `app/sw.js` matches `package.json`, and deploys `main` to production and any other branch as a preview (`--preview`, `--dry-run`, `--help`). Setup, rollback and common errors are in [`deploy/cloudflare/README.md`](../deploy/cloudflare/README.md) (Traditional Chinese).
-
 ### Option A: connect the GitHub repository
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**, choose the repository.
@@ -60,7 +58,7 @@ If you serve the app under a sub-path (for example `example.com/cam/`), everythi
 
 1. Change files in `app/`.
 2. Bump `CACHE_VERSION` in `app/sw.js` (`xixi-beauty-cam-<package version>-<n>`; `npm test` checks the format and that the cache list matches `app/`).
-3. Deploy (`deploy/cloudflare/deploy.sh` refuses to deploy if the cache version and the package version do not match). Browsers fetch the new `sw.js` on the next visit, download the new version in the background and show 「新版本已下載，重新整理後使用」; the next load uses it.
+3. Run `npm test` (it checks the cache version format and the cache list), then deploy `app/` the same way as before. Browsers fetch the new `sw.js` on the next visit, download the new version in the background and show 「新版本已下載，重新整理後使用」; the next load uses it.
 
 ## Other static hosts
 
