@@ -1,0 +1,34 @@
+xixi-beauty-cam
+Copyright 2026 The xixi-beauty-cam Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The built-in filter files in app/filters/*.xixi-filter.json and beauty preset
+files in app/beauty/*.xixi-beauty.json are dedicated to the public domain under
+CC0-1.0, as stated in the "license" field of each file.
+
+-------------------------------------------------------------------------------
+Third-party components
+-------------------------------------------------------------------------------
+
+The following components are NOT included in this repository. The web app
+downloads them at runtime from the pinned URLs below.
+
+1. MediaPipe Tasks Vision (@mediapipe/tasks-vision) 1.2.2 — JavaScript and WASM
+   Copyright The MediaPipe Authors
+   License: Apache License, Version 2.0
+   Source:  https://github.com/google-ai-edge/mediapipe
+   Loaded from: https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/
+
+2. MediaPipe Face Landmarker model (face_landmarker.task, float16, version 1)
+   Bundles BlazeFace (short range), Face Mesh V2 and Blendshape V2.
+   Copyright Google LLC
+   License: Apache License, Version 2.0 (as stated in the model cards)
+   Loaded from: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+   Model cards:
+     https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf
+     https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf
+     https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Blendshape%20V2.pdf
+
+Development-only tools (ESLint, Prettier and their dependencies) are installed
+by npm for linting and are not distributed with the app.
