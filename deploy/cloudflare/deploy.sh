@@ -32,8 +32,8 @@ usage() {
   --dry-run     只跑所有檢查，印出將執行的 wrangler 指令，不部署、不連 Cloudflare
   --help        顯示本說明
 
-部署前依序檢查：在 repo 根目錄、工作區乾淨、分支、npm test、npm run lint、
-預設檔驗證、app/sw.js 的 CACHE_VERSION 與 package.json 版本一致。任何一步失敗就停。
+部署前依序檢查：在 repo 根目錄、工作區乾淨、分支、app/sw.js 的 CACHE_VERSION
+與 package.json 版本一致、npm test、npm run lint、預設檔驗證。任何一步失敗就停。
 
 登入：優先用 `npx wrangler login` 的登入；也可以在 shell 設定環境變數
 CLOUDFLARE_API_TOKEN 與 CLOUDFLARE_ACCOUNT_ID（不要寫進任何檔案）。
@@ -122,24 +122,10 @@ else
 fi
 ok "分支 ${branch} → 部署為 ${mode}，Cloudflare 分支名 ${deploy_branch}"
 
-# 4. Tests, lint, preset validation -------------------------------------------------
-step "跑測試、lint 與預設檔驗證"
-command -v node > /dev/null 2>&1 || fail "找不到 node。" "請安裝 Node.js 20 以上（https://nodejs.org/ 下載 LTS 版），再重跑。"
-command -v npm > /dev/null 2>&1 || fail "找不到 npm。" "npm 隨 Node.js 一起安裝；請重新安裝 Node.js LTS。"
-command -v npx > /dev/null 2>&1 || fail "找不到 npx。" "npx 隨 Node.js 一起安裝；請重新安裝 Node.js LTS。"
-if [ ! -d node_modules ]; then
-  fail "還沒安裝開發工具（沒有 node_modules/）。" "請先在 repo 根目錄執行 npm ci，再重跑。"
-fi
-npm test || fail "npm test 沒通過。" "看上面的錯誤訊息修好後，commit 再重跑。"
-ok "npm test 通過"
-npm run lint || fail "npm run lint 沒通過。" "格式問題可執行 npm run format 自動修正，commit 後再重跑。"
-ok "npm run lint 通過"
-npm run validate:presets || fail "預設檔驗證沒通過。" "依上面指出的檔案與欄位修正 app/filters/ 或 app/beauty/ 的預設檔。"
-ok "預設檔驗證通過"
-
-# 5. Service worker cache version ---------------------------------------------------
+# 4. Service worker cache version ---------------------------------------------------
 step "檢查快取版本"
-pkg_version="$(node -p "require('./package.json').version")"
+pkg_version="$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' package.json | head -n 1)"
+[ -n "${pkg_version}" ] || fail "在 package.json 找不到 version。" "package.json 要有一行 \"version\": \"x.y.z\"。"
 cache_version="$(sed -n "s/^const CACHE_VERSION = '\([^']*\)';.*/\1/p" app/sw.js | head -n 1)"
 if [ -z "${cache_version}" ]; then
   fail "在 app/sw.js 找不到 CACHE_VERSION。" "app/sw.js 要有一行 const CACHE_VERSION = 'xixi-beauty-cam-<版本>-<序號>';"
@@ -155,6 +141,21 @@ case "${cache_version}" in
     ;;
 esac
 ok "CACHE_VERSION ${cache_version} 與 package.json ${pkg_version} 一致"
+
+# 5. Tests, lint, preset validation -------------------------------------------------
+step "跑測試、lint 與預設檔驗證"
+command -v node > /dev/null 2>&1 || fail "找不到 node。" "請安裝 Node.js 20 以上（https://nodejs.org/ 下載 LTS 版），再重跑。"
+command -v npm > /dev/null 2>&1 || fail "找不到 npm。" "npm 隨 Node.js 一起安裝；請重新安裝 Node.js LTS。"
+command -v npx > /dev/null 2>&1 || fail "找不到 npx。" "npx 隨 Node.js 一起安裝；請重新安裝 Node.js LTS。"
+if [ ! -d node_modules ]; then
+  fail "還沒安裝開發工具（沒有 node_modules/）。" "請先在 repo 根目錄執行 npm ci，再重跑。"
+fi
+npm test || fail "npm test 沒通過。" "看上面的錯誤訊息修好後，commit 再重跑。"
+ok "npm test 通過"
+npm run lint || fail "npm run lint 沒通過。" "格式問題可執行 npm run format 自動修正，commit 後再重跑。"
+ok "npm run lint 通過"
+npm run validate:presets || fail "預設檔驗證沒通過。" "依上面指出的檔案與欄位修正 app/filters/ 或 app/beauty/ 的預設檔。"
+ok "預設檔驗證通過"
 
 # 6. Deploy ----------------------------------------------------------------------------
 commit_hash="$(git rev-parse HEAD)"

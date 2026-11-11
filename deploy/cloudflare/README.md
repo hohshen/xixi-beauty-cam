@@ -1,6 +1,6 @@
 # 部署到 Cloudflare Pages
 
-**每次更新只要在 repo 根目錄執行一行：`deploy/cloudflare/deploy.sh`。** 在 `main` 分支會正式部署到 `https://xixi-beauty-cam.pages.dev/`，在其他分支會自動改成預覽部署。腳本先跑完所有檢查（工作區乾淨、測試、lint、快取版本），任何一步失敗就停下並用中文說明怎麼修。第一次使用前要先做下面三步設定。
+**每次更新只要在 repo 根目錄執行一行：`deploy/cloudflare/deploy.sh`。** 在 `main` 分支會正式部署到 `https://xixi-beauty-cam.pages.dev/`，在其他分支會自動改成預覽部署。腳本先跑完所有檢查（工作區乾淨、快取版本、測試、lint），任何一步失敗就停下並用中文說明怎麼修。第一次使用前要先做下面三步設定。
 
 | 檔案            | 用途                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------- |
@@ -57,8 +57,8 @@ deploy/cloudflare/deploy.sh             # 真的部署
 1. 在 repo 根目錄執行。
 2. 工作區乾淨（沒有未提交的變更），部署內容才能對到一個 commit。
 3. 分支：`main` 才正式部署，其他分支或加 `--preview` 時是預覽部署。
-4. `npm test`、`npm run lint`、`npm run validate:presets`。
-5. `app/sw.js` 的 `CACHE_VERSION` 是 `xixi-beauty-cam-<package.json 版本>-<序號>`。
+4. `app/sw.js` 的 `CACHE_VERSION` 是 `xixi-beauty-cam-<package.json 版本>-<序號>`。
+5. `npm test`、`npm run lint`、`npm run validate:presets`。
 6. 在 `deploy/cloudflare/` 執行 `npx --yes wrangler@4.78.0 pages deploy ../../app --project-name xixi-beauty-cam --branch <分支> --commit-hash <git sha> --commit-message <commit 標題>`。
 
 ## 登入方式
