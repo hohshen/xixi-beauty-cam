@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Progressive Web App: `manifest.webmanifest` (standalone, portrait), original app icons (`scripts/make-icons.py`), and a service worker that caches the whole app including MediaPipe and the model, so it opens and detects faces offline after the first visit.
+- Phones: front/rear camera switch (rear camera is not mirrored), share sheet for captured photos on touch devices (save to Photos on iPhone, download as fallback), landscape layout for short screens, safe-area insets on all sides, resume after backgrounding, no pinch/double-tap zoom or pull-to-refresh.
+- Auto quality: when the preview stays under 24 fps for 3 s, the bilateral filter uses fewer samples and face detection runs every 2nd or 3rd frame; the level is shown in the fps panel and can be pinned (`?quality=0..4` or the ⋯ menu).
+- `docs/deploy.md` (Cloudflare Pages and other static hosts) and `app/_headers`.
+- Phone test steps for iPhone Safari and Android Chrome in the README; `tests/pwa.test.mjs`.
+
+### Changed
+
+- MediaPipe Tasks Vision 1.2.2 (JS, WASM) and the Face Landmarker model are now shipped in `app/vendor/` instead of loaded from jsDelivr and Google Cloud Storage; the app only requests files from its own origin.
+- A Content-Security-Policy (`connect-src 'self'`) blocks requests to other hosts, including the usage-statistics logger built into MediaPipe 1.2.2.
+- CI: `actions/checkout` 7.0.1 and `actions/setup-node` 7.1.0.
+
 ## [0.1.0] - 2026-11-11
 
 First public release.

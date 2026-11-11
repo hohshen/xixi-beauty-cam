@@ -52,8 +52,8 @@ uniform float uSlimR[MAX_FACES];           // 控制點影響半徑（像素）
 uniform vec4 uEye[MAX_FACES * 2];          // 眼睛中心 xy、半徑、放大量（已乘強度）
 out vec4 outColor;
 
-const int R = 4;            // 9x9 取樣
-const float SIGMA_S2 = 2.0 * 2.5 * 2.5;
+// 雙邊濾波半徑：(2r+1)² 個取樣。L0 是 4（9x9）；自動降級時改 3 或 2，取樣間距由 JS 等比放大，磨皮範圍大致不變
+uniform int uRadius;
 
 float skinWeight(vec3 c) {
   // YCbCr 膚色範圍（0..1），邊界用 smoothstep 做軟邊
@@ -68,8 +68,10 @@ vec3 bilateral(vec2 uv, vec3 c0, float sigmaR) {
   vec3 sum = vec3(0.0);
   float wsum = 0.0;
   float sr2 = 2.0 * sigmaR * sigmaR;
-  for (int j = -R; j <= R; j++) {
-    for (int i = -R; i <= R; i++) {
+  float sigmaS = 2.5 * float(uRadius) / 4.0; // 以取樣格為單位；r = 4 時 2.5
+  float SIGMA_S2 = 2.0 * sigmaS * sigmaS;
+  for (int j = -uRadius; j <= uRadius; j++) {
+    for (int i = -uRadius; i <= uRadius; i++) {
       vec2 o = vec2(float(i), float(j)) * uSpacing * uTexel;
       vec3 c = texture(uVideo, uv + o).rgb;
       vec3 d = c - c0;
@@ -250,6 +252,7 @@ export class Renderer {
       mask: u('uMask'),
       texel: u('uTexel'),
       spacing: u('uSpacing'),
+      radius: u('uRadius'),
       smooth: u('uSmooth'),
       bright: u('uBright'),
       grade: u('uGrade'),
@@ -276,8 +279,9 @@ export class Renderer {
    * @param {object} [o.filter]  濾鏡分頁的 look.params()（-1..1），作用在整張畫面；省略表示不調色
    * @param {object} [o.warp]  WarpBuilder.build() 的結果；省略表示不變形
    * @param {number} [o.seed]  顆粒的亂數種子
+   * @param {number} [o.radius]  雙邊濾波半徑（2..4）；自動降級時變小，取樣間距等比放大
    */
-  draw(video, mask, { beauty, filter = null, viewMode = 0, mirror = true, warp = null, seed = 0 }) {
+  draw(video, mask, { beauty, filter = null, viewMode = 0, mirror = true, warp = null, seed = 0, radius = 4 }) {
     const gl = this.gl;
     const w = video.videoWidth || video.width,
       h = video.videoHeight || video.height;
@@ -296,7 +300,9 @@ export class Renderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask);
 
     gl.uniform2f(this.u.texel, 1 / w, 1 / h);
-    gl.uniform1f(this.u.spacing, Math.max(1, h / 480) * 1.5);
+    const r = Math.min(4, Math.max(1, Math.round(radius)));
+    gl.uniform1i(this.u.radius, r);
+    gl.uniform1f(this.u.spacing, (Math.max(1, h / 480) * 1.5 * 4) / r);
     gl.uniform1f(this.u.smooth, beauty.smooth);
     gl.uniform1f(this.u.bright, beauty.whiten);
     const g = gradeUniforms(filter ?? {});

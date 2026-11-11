@@ -11,20 +11,23 @@ CC0-1.0, as stated in the "license" field of each file.
 Third-party components
 -------------------------------------------------------------------------------
 
-The following components are NOT included in this repository. The web app
-downloads them at runtime from the pinned URLs below.
+The following components are included unmodified in app/vendor/ and served
+from the app's own origin (see app/vendor/README.md for paths and SHA-256).
+They are licensed under the Apache License, Version 2.0, the same license as
+this project (see LICENSE).
 
 1. MediaPipe Tasks Vision (@mediapipe/tasks-vision) 1.2.2 — JavaScript and WASM
    Copyright The MediaPipe Authors
    License: Apache License, Version 2.0
    Source:  https://github.com/google-ai-edge/mediapipe
-   Loaded from: https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/
+   Obtained from: npm package @mediapipe/tasks-vision@1.2.2
+   Files: vision_bundle.mjs, wasm/vision_wasm_internal.js, wasm/vision_wasm_internal.wasm
 
 2. MediaPipe Face Landmarker model (face_landmarker.task, float16, version 1)
    Bundles BlazeFace (short range), Face Mesh V2 and Blendshape V2.
    Copyright Google LLC
    License: Apache License, Version 2.0 (as stated in the model cards)
-   Loaded from: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+   Obtained from: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
    Model cards:
      https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf
      https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf

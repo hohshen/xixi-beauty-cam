@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "xixi-beauty-cam 美顏相機",
+  "short_name": "美顏相機",
+  "description": "在瀏覽器裡執行的美顏相機：濾鏡調整張畫面，美顏只修飾臉，點臉上的標籤逐人開關。畫面只在本機處理，不上傳。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["photo"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
