@@ -70,9 +70,10 @@ Filter parameters (k = value / 100 × intensity, applied in this order to every 
 
 The page should request only:
 
-- Its own files: `index.html`, `style.css`, `app.js`, `presets.js`, `look.js`, `tracker.js`, `renderer.js`, `warp.js`, `mask.js`, `filters/index.json`, `beauty/index.json` and the built-in `filters/*.xixi-filter.json` and `beauty/*.xixi-beauty.json`.
-- jsDelivr: `vision_bundle.mjs`, `vision_wasm_internal.js` and the `.wasm` file of `@mediapipe/tasks-vision@1.2.2`.
-- Google Cloud Storage: `face_landmarker.task` (float16/1).
+- Its own files, all from the page's own origin: `index.html`, `style.css`, `manifest.webmanifest`, `icons/*`, `sw.js`, `app.js`, `presets.js`, `look.js`, `quality.js`, `tracker.js`, `renderer.js`, `warp.js`, `mask.js`, `filters/index.json`, `beauty/index.json`, the built-in `filters/*.xixi-filter.json` and `beauty/*.xixi-beauty.json`, and the vendored MediaPipe files in `vendor/` (`vision_bundle.mjs`, `wasm/vision_wasm_internal.js`, `wasm/vision_wasm_internal.wasm`, `face_landmarker.task`).
+- On the first visit the service worker (`sw.js`) downloads the same list once more into its cache (with `cache: 'reload'`); afterwards everything is served from that cache, also offline.
+
+Nothing goes to other hosts: the Content-Security-Policy in `index.html` (and in `_headers` on Cloudflare Pages) sets `connect-src 'self'`. MediaPipe 1.2.2 contains a usage-statistics logger that `POST`s to `https://odml.pa.googleapis.com/v1/log` about once a minute; CSP blocks it, and DevTools shows it as a blocked request / CSP console error. That one entry is expected.
 
 Photos used as a camera are read through `blob:` URLs. Imported preset files are read with `File.text()`, exported ones are downloaded through `blob:` URLs. URLs inside preset files are never loaded. There is no analytics, telemetry or error-reporting service.
 
@@ -91,7 +92,11 @@ All reads and writes are wrapped in `try/catch`; in private windows the app stil
 
 ## Known limitations
 
-- Only verified on desktop Chrome. Safari, Firefox and mobile devices are not verified yet.
+- Only verified on desktop Chrome. Safari, Firefox and mobile devices are not verified yet; see the phone test steps in the README.
+- The CSP uses `'wasm-unsafe-eval'`, which Safari supports from 16 (iOS 16); on older iOS the WASM will not compile (not verified).
+- First visit downloads about 19 MB twice at most (page + service worker cache), unless the user taps 開啟鏡頭 after the service worker has finished; afterwards nothing is downloaded until a new version.
+- iOS: the front camera of some iPhones may not report `facingMode`; the app then assumes the camera it asked for (not verified). Web Share with files needs iOS 15+; without it the photo is downloaded. Installed home-screen apps on iOS keep their own storage separate from Safari, so custom presets saved in Safari do not appear there (not verified).
+- Auto quality only counts processed frames, so it cannot tell a slow camera (e.g. 15 fps in low light) from a slow device; in low light it may step down even though the device is fast enough.
 - The built-in beauty values were derived from the shader curves, and the built-in filter values are the planned starting values checked numerically on sample colors; both still need visual tuning on real scenes.
 - Filter thumbnails are a rough CSS approximation of exposure, contrast, saturation and temperature; the preview shows the real result.
 - Tracking uses position only (no face recognition). After about 1.5 s without a match a track is dropped; a returning person gets the smallest free number and beauty resets to on. Two people swapping places while out of frame may get each other's labels.
