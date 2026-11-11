@@ -1,0 +1,415 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <title>xixi-beauty-cam 變形自動測試</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body {
+        background: #15171a;
+        color: #e8e8e8;
+        font:
+          14px/1.5 -apple-system,
+          'PingFang TC',
+          sans-serif;
+        margin: 16px;
+      }
+      canvas {
+        width: 640px;
+        border: 1px solid #444;
+        display: block;
+        margin: 8px 0;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>瘦臉／大眼 自動測試（合成 landmark，不用鏡頭、不含真人臉）</h1>
+    <p>
+      用程式畫的卡通臉與格線背景，餵假的 478 點 landmark 給實際的 <code>warp.js</code>、<code>mask.js</code>、<code>renderer.js</code>，用
+      readPixels 逐像素比對。不發任何網路請求。
+    </p>
+    <canvas id="out"></canvas>
+    <pre id="log">執行中…</pre>
+    <script type="module">
+      import { Renderer } from '../../app/renderer.js';
+      import { WarpBuilder } from '../../app/warp.js';
+      import { drawFaceMask } from '../../app/mask.js';
+
+      // FaceLandmarker.FACE_LANDMARKS_FACE_OVAL 的起點順序（從額頭中央順時針）
+      const OVAL = [
+        10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132,
+        93, 234, 127, 162, 21, 54, 103, 67, 109,
+      ];
+      const W = 1280,
+        H = 720,
+        MASK_SCALE = 0.5;
+
+      // 合成一張臉：輪廓點放在橢圓上，眼角與虹膜放在對應位置，其他點放臉中心。
+      function fakeFace(cx, cy, rx, ry) {
+        const lm = Array.from({ length: 478 }, () => ({ x: cx, y: cy, z: 0 }));
+        OVAL.forEach((idx, i) => {
+          const th = (i / OVAL.length) * Math.PI * 2;
+          lm[idx] = { x: cx + rx * Math.sin(th), y: cy - ry * Math.cos(th), z: 0 };
+        });
+        const ey = cy - 0.15 * ry,
+          ew = 0.35 * rx;
+        const eyeL = cx - 0.42 * rx,
+          eyeR = cx + 0.42 * rx;
+        lm[33] = { x: eyeL - ew / 2, y: ey };
+        lm[133] = { x: eyeL + ew / 2, y: ey };
+        lm[468] = { x: eyeL, y: ey };
+        lm[362] = { x: eyeR - ew / 2, y: ey };
+        lm[263] = { x: eyeR + ew / 2, y: ey };
+        lm[473] = { x: eyeR, y: ey };
+        return lm;
+      }
+      function box(lm) {
+        let x0 = 1,
+          y0 = 1,
+          x1 = 0,
+          y1 = 0;
+        for (const p of lm) {
+          x0 = Math.min(x0, p.x);
+          x1 = Math.max(x1, p.x);
+          y0 = Math.min(y0, p.y);
+          y1 = Math.max(y1, p.y);
+        }
+        return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+      }
+      function track(id, beauty, cx, cy, rx, ry) {
+        const lm = fakeFace(cx, cy, rx, ry);
+        return { id, beauty, landmarks: lm, missed: 0, ...box(lm), ell: { cx, cy, rx, ry } };
+      }
+
+      // 來源畫面：格線背景 + 卡通臉（膚色橢圓、眼睛、虹膜），讓變形看得出來
+      const src = document.createElement('canvas');
+      src.width = W;
+      src.height = H;
+      function paintSource(tracks) {
+        const c = src.getContext('2d');
+        c.fillStyle = '#5a6b7c';
+        c.fillRect(0, 0, W, H);
+        c.strokeStyle = '#d8e0e8';
+        c.lineWidth = 2;
+        for (let x = 0; x <= W; x += 32) {
+          c.beginPath();
+          c.moveTo(x, 0);
+          c.lineTo(x, H);
+          c.stroke();
+        }
+        for (let y = 0; y <= H; y += 32) {
+          c.beginPath();
+          c.moveTo(0, y);
+          c.lineTo(W, y);
+          c.stroke();
+        }
+        for (const t of tracks) {
+          const { cx, cy, rx, ry } = t.ell;
+          c.fillStyle = '#e0a98c';
+          c.beginPath();
+          c.ellipse(cx * W, cy * H, rx * W, ry * H, 0, 0, Math.PI * 2);
+          c.fill();
+          c.strokeStyle = '#7a4a35';
+          c.lineWidth = 3;
+          c.stroke();
+          for (const i of [468, 473]) {
+            const p = t.landmarks[i];
+            c.fillStyle = '#fff';
+            c.beginPath();
+            c.ellipse(p.x * W, p.y * H, 0.07 * rx * W, 0.045 * rx * W * 1.3, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#3a2618';
+            c.beginPath();
+            c.arc(p.x * W, p.y * H, 0.035 * rx * W, 0, Math.PI * 2);
+            c.fill();
+          }
+          c.strokeStyle = '#a0522d';
+          c.lineWidth = 3;
+          c.beginPath();
+          c.arc(cx * W, (cy + 0.35 * ry) * H, 0.25 * rx * W, 0.2, Math.PI - 0.2);
+          c.stroke();
+        }
+      }
+      const srcPixels = () => src.getContext('2d').getImageData(0, 0, W, H).data;
+
+      const out = document.getElementById('out');
+      const renderer = new Renderer(out);
+      const gl = renderer.gl;
+      const mask = document.createElement('canvas');
+      mask.width = W * MASK_SCALE;
+      mask.height = H * MASK_SCALE;
+      const mctx = mask.getContext('2d');
+
+      // 繪製一次並讀回（readPixels 是由下往上，翻成由上往下，與 2D canvas 同序）
+      const buf = new Uint8Array(W * H * 4);
+      // s：美顏參數（0..1）；filter：濾鏡參數（-1..1，省略表示不調色）；viewMode 2 = 與「只套濾鏡」的差異 ×20
+      function render(tracks, s, { read = true, filter = null, viewMode = 0 } = {}) {
+        drawFaceMask(mctx, tracks, OVAL);
+        const warp = s.noWarp ? null : new WarpBuilder({ smooth: 1 }).build(tracks, W, H, s);
+        renderer.draw(src, mask, { beauty: { smooth: s.smooth, whiten: s.bright }, filter, viewMode, mirror: false, warp, seed: 7 });
+        if (!read) return null;
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        const o = new Uint8ClampedArray(W * H * 4),
+          row = W * 4;
+        for (let y = 0; y < H; y++) o.set(buf.subarray((H - 1 - y) * row, (H - y) * row), y * row);
+        return o;
+      }
+      // 比較兩張影像在 region(x,y) 為真的像素：回傳最大差、平均差、變了幾個像素
+      function cmp(a, b, region = () => true) {
+        let max = 0,
+          sum = 0,
+          n = 0,
+          changed = 0;
+        for (let y = 0; y < H; y++)
+          for (let x = 0; x < W; x++) {
+            if (!region(x, y)) continue;
+            const i = (y * W + x) * 4;
+            const d = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
+            if (d > max) max = d;
+            sum += d;
+            n++;
+            if (d > 0) changed++;
+          }
+        return { max, mean: +(sum / Math.max(1, n)).toFixed(4), changed, n };
+      }
+      const inEllipse =
+        (t, k = 1) =>
+        (x, y) => {
+          const { cx, cy, rx, ry } = t.ell;
+          const dx = (x + 0.5) / W - cx,
+            dy = (y + 0.5) / H - cy;
+          return (dx * dx) / (rx * rx * k * k) + (dy * dy) / (ry * ry * k * k) <= 1;
+        };
+      const outside = (fn) => (x, y) => !fn(x, y);
+
+      const R = {};
+      const log = [];
+      const ok = (name, pass, detail) => {
+        R[name] = { pass, ...detail };
+        log.push(`${pass ? '✅' : '❌'} ${name}  ${JSON.stringify(detail)}`);
+      };
+
+      // ---------- 場景：兩人同框（A 開、B 關），臉寬約畫面 22% ----------
+      const ZERO = { smooth: 0, bright: 0, slim: 0, eye: 0 };
+      const MAXS = { smooth: 1, bright: 1, slim: 1, eye: 1 };
+      function scene(gap = 'far', bOn = false) {
+        const bx = gap === 'far' ? 0.7 : 0.61;
+        const ax = gap === 'far' ? 0.3 : 0.39;
+        return [track(1, true, ax, 0.5, 0.11, 0.3), track(2, bOn, bx, 0.5, 0.11, 0.3)];
+      }
+
+      // T1 滑桿 0 = 原圖
+      {
+        const t = scene();
+        paintSource(t);
+        const S = srcPixels();
+        const a = render(t, ZERO);
+        ok('T1a 四條滑桿都 0，輸出與原圖逐像素相同', cmp(a, S).max === 0, cmp(a, S));
+        const b = render(t, { ...MAXS, slim: 0, eye: 0 });
+        const c = render(t, { ...MAXS, slim: 0, eye: 0, noWarp: true });
+        ok('T1b 瘦臉、大眼為 0 時，與完全不送變形參數的輸出相同（磨皮美白開）', cmp(b, c).max === 0, cmp(b, c));
+      }
+
+      // T2 0→100 平滑：每 5 一格，看 A 臉附近與原圖的平均差是否單調上升、相鄰兩格的變化是否小而均勻
+      for (const key of ['slim', 'eye']) {
+        const t = scene();
+        paintSource(t);
+        const S = srcPixels();
+        const region = inEllipse(t[0], 1.3);
+        const means = [],
+          steps = [];
+        let prev = null;
+        for (let v = 0; v <= 100; v += 5) {
+          const o = render(t, { ...ZERO, [key]: v / 100 });
+          means.push(cmp(o, S, region).mean);
+          if (prev) steps.push(cmp(o, prev, region).mean);
+          prev = o;
+        }
+        let mono = true;
+        for (let i = 1; i < means.length; i++) if (means[i] < means[i - 1]) mono = false;
+        const maxStep = Math.max(...steps),
+          avgStep = steps.reduce((p, q) => p + q, 0) / steps.length;
+        ok(`T2 ${key === 'slim' ? '瘦臉' : '大眼'} 0→100 單調且無跳變`, means[0] === 0 && mono && maxStep < 3 * avgStep, {
+          meanDiffVsSrc: means,
+          maxStep: +maxStep.toFixed(4),
+          avgStep: +avgStep.toFixed(4),
+        });
+      }
+
+      // T3 兩人同框，B 關：B 的臉（輪廓 ×1.0）與原圖逐像素相同；遠距與緊貼兩種距離
+      for (const gap of ['far', 'near']) {
+        const t = scene(gap);
+        paintSource(t);
+        const S = srcPixels();
+        const o = render(t, MAXS);
+        const bFace = cmp(o, S, inEllipse(t[1], 1.0));
+        const aFace = cmp(o, S, inEllipse(t[0], 1.0));
+        ok(
+          `T3 ${gap === 'far' ? '相距 0.18 畫面寬' : '臉緣相距 0'}：B 關，B 臉形與眼睛不變（四條滑桿最大）`,
+          bFace.max === 0 && aFace.changed > 0,
+          { B: bFace, A: aFace },
+        );
+        // 對照：B 開的時候，B 的臉確實會變（證明上面不是因為測試區域畫錯）
+        const t2 = scene(gap, true);
+        const o2 = render(t2, MAXS);
+        const bOn = cmp(o2, S, inEllipse(t2[1], 1.0));
+        ok(`T3c ${gap}：對照組 B 開時 B 的臉有變`, bOn.changed > 0, { B: bOn });
+      }
+
+      // T4 背景：A 開、B 關、只開瘦臉＋大眼（不開磨皮美白），A 的臉框往外 40% 臉寬以外的背景完全不動
+      {
+        const t = scene();
+        paintSource(t);
+        const S = srcPixels();
+        const o = render(t, { ...ZERO, slim: 1, eye: 1 });
+        const b = t[0];
+        const faceW = b.w; // 正規化
+        const pad = 0.4 * faceW; // 與 warp.js BOX_PAD 相同
+        const inBox = (x, y) =>
+          (x + 0.5) / W >= b.cx - b.w / 2 - pad * 1.01 &&
+          (x + 0.5) / W <= b.cx + b.w / 2 + pad * 1.01 &&
+          (y + 0.5) / H >= b.cy - b.h / 2 - ((pad * W) / H) * 1.01 &&
+          (y + 0.5) / H <= b.cy + b.h / 2 + ((pad * W) / H) * 1.01;
+        const far = cmp(o, S, outside(inBox));
+        // 臉外、框內的背景（臉緣外一圈）：變形量多大
+        const ring = cmp(o, S, (x, y) => inBox(x, y) && !inEllipse(b, 1.0)(x, y));
+        ok('T4 A 的變形範圍外背景逐像素不動', far.max === 0, { outsideBox: far, ringAroundFace: ring });
+      }
+
+      // T5 拍照 PNG：與預覽同一幀，含變形
+      {
+        const t = scene();
+        paintSource(t);
+        const S = srcPixels();
+        const pre = render(t, { ...ZERO, slim: 1, eye: 1 });
+        render(t, { ...ZERO, slim: 1, eye: 1 }, { read: false });
+        const blob = await new Promise((r) => out.toBlob(r, 'image/png'));
+        const bmp = await createImageBitmap(blob);
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const cx = c.getContext('2d');
+        cx.drawImage(bmp, 0, 0);
+        const png = cx.getImageData(0, 0, W, H).data;
+        const vsPreview = cmp(png, pre),
+          vsSrc = cmp(png, S, inEllipse(t[0], 1.3));
+        ok('T5 拍照 PNG 與預覽相同且含瘦臉大眼', vsPreview.max === 0 && vsSrc.changed > 0, {
+          vsPreview,
+          vsSrcAroundA: vsSrc,
+          bytes: blob.size,
+        });
+      }
+
+      // T6 效能：1280×720，2 人都開、四條最大；與不變形比較。每次以 1 像素 readPixels 等 GPU 做完。
+      {
+        const t = scene('far', true);
+        paintSource(t);
+        const px = new Uint8Array(4);
+        const bench = (s, n = 200) => {
+          for (let i = 0; i < 20; i++) {
+            render(t, s, { read: false });
+            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          }
+          const t0 = performance.now();
+          for (let i = 0; i < n; i++) {
+            render(t, s, { read: false });
+            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          }
+          return +((performance.now() - t0) / n).toFixed(2);
+        };
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+        const msNoWarp = bench({ ...MAXS, noWarp: true });
+        const msWarp = bench(MAXS);
+        const msOnlyWarp = bench({ ...ZERO, slim: 1, eye: 1 });
+        R.perf = {
+          gpu,
+          msPerFrame_beautyNoWarp: msNoWarp,
+          msPerFrame_beautyWithWarp: msWarp,
+          msPerFrame_warpOnly: msOnlyWarp,
+          note: '含遮罩繪製、變形參數計算、texture 上傳、draw、1 像素 readPixels 同步',
+        };
+        log.push(`⏱ ${JSON.stringify(R.perf)}`);
+      }
+
+      // T7 濾鏡套整張畫面：A 開、B 關，選濾鏡後 B 的臉與背景也一起調色；美顏差異檢視中 B 全黑
+      const FILTERS = {
+        fresh: { exposure: 0.05, contrast: -0.05, saturation: 0.1, temperature: -0.05 },
+        warm: { exposure: 0.03, contrast: 0.05, saturation: 0.05, temperature: 0.25, tint: 0.05, fade: 0.05, vignette: 0.1 },
+        cool: { exposure: 0.08, saturation: -0.1, temperature: -0.2, fade: 0.05 },
+        film: { contrast: -0.1, saturation: -0.15, temperature: 0.1, tint: 0.05, fade: 0.25, vignette: 0.2, grain: 0.15 },
+        mono: { contrast: 0.15, saturation: -1, fade: 0.05, vignette: 0.15, grain: 0.1 },
+      };
+      {
+        const t = scene();
+        paintSource(t);
+        const S = srcPixels();
+        const beautyOnly = render(t, MAXS);
+        const none = render(t, MAXS, { filter: {} });
+        ok('T7a 濾鏡全 0（原圖）：輸出與不傳濾鏡逐像素相同', cmp(none, beautyOnly).max === 0, cmp(none, beautyOnly));
+        const graded = render(t, MAXS, { filter: FILTERS.warm });
+        const bg = (x, y) => !inEllipse(t[0], 1.6)(x, y) && !inEllipse(t[1], 1.6)(x, y);
+        const bFace = cmp(graded, S, inEllipse(t[1], 1.0));
+        const back = cmp(graded, S, bg);
+        ok('T7b 暖陽：美顏關的 B 臉與背景都被調色（濾鏡套整張畫面）', bFace.changed > 0.9 * bFace.n && back.changed > 0.9 * back.n, {
+          B: bFace,
+          background: back,
+        });
+        for (const [name, f] of Object.entries(FILTERS)) {
+          const d = render(t, MAXS, { filter: f, viewMode: 2 });
+          const bD = cmp(d, new Uint8ClampedArray(W * H * 4), inEllipse(t[1], 1.0));
+          const aD = cmp(d, new Uint8ClampedArray(W * H * 4), inEllipse(t[0], 1.0));
+          ok(`T7c ${name}：美顏差異檢視（比對只套濾鏡）B 全黑、A 有亮點`, bD.max === 0 && aD.changed > 0, { B: bD, A: aD });
+        }
+        // 調色後的代表色（給調參數用）：膚色、中灰、背景藍
+        const probe = {};
+        const px = new Uint8Array(4);
+        const sample = (x, y) => {
+          gl.readPixels(x, H - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          return [px[0], px[1], px[2]];
+        };
+        const at = {
+          skinB: [Math.round(t[1].ell.cx * W), Math.round((t[1].ell.cy + 0.15 * t[1].ell.ry) * H)],
+          bgCenter: [W >> 1, 20],
+          corner: [4, 4],
+        };
+        for (const name of ['none', ...Object.keys(FILTERS)]) {
+          render(t, ZERO, { filter: FILTERS[name] ?? {}, read: false });
+          probe[name] = Object.fromEntries(Object.entries(at).map(([k, [x, y]]) => [k, sample(x, y)]));
+        }
+        R.filterProbe = probe;
+        log.push(`🎨 ${JSON.stringify(probe)}`);
+        // 效能：最重的濾鏡（膠片：含暗角與顆粒）加在四條美顏最大上
+        const one = new Uint8Array(4);
+        const bench = (f, n = 200) => {
+          const t2 = scene('far', true);
+          paintSource(t2);
+          for (let i = 0; i < 20; i++) render(t2, MAXS, { filter: f, read: false });
+          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, one);
+          const t0 = performance.now();
+          for (let i = 0; i < n; i++) {
+            render(t2, MAXS, { filter: f, read: false });
+            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, one);
+          }
+          return +((performance.now() - t0) / n).toFixed(2);
+        };
+        R.perfFilter = { msPerFrame_beautyMax_noFilter: bench(null), msPerFrame_beautyMax_film: bench(FILTERS.film) };
+        log.push(`⏱ ${JSON.stringify(R.perfFilter)}`);
+      }
+
+      // 留一張示意圖在畫面上：A 開（瘦臉大眼最大）、B 關
+      {
+        const t = scene();
+        paintSource(t);
+        render(t, { ...ZERO, slim: 1, eye: 1 }, { read: false });
+      }
+      document.getElementById('log').textContent = log.join('\n');
+      window.testResults = R;
+      window.testDone = true;
+    </script>
+  </body>
+</html>

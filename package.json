@@ -17,7 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node scripts/validate-presets.mjs",
+    "test": "node tests/presets.test.mjs && node tests/preset-format.test.mjs && node scripts/validate-presets.mjs",
     "validate:presets": "node scripts/validate-presets.mjs",
     "lint": "eslint . && prettier --check .",
     "lint:commits": "commitlint --from HEAD~1 --to HEAD --verbose",
