@@ -8,6 +8,9 @@
   --off: #6b7075;
   --accent: #ff7a59; /* 選中的濾鏡外框、主按鈕；自訂色，不取自任何 app */
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
 }
 * {
   box-sizing: border-box;
@@ -27,6 +30,24 @@ body {
     sans-serif;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+  /* 手機：不要長按選字、不要拉動整頁（下拉重新整理、橡皮筋）、不要雙擊縮放 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+/* 手機瀏覽器網址列會收合，100% 高度不準；支援 dvh 的用動態高度 */
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
+}
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 button {
   font: inherit;
@@ -92,8 +113,16 @@ select {
   inset: 0;
   pointer-events: none;
 }
+/* 鏡頭的 <video> 不直接顯示（畫面由 WebGL 畫），但不用 display: none：
+   iOS Safari 對不渲染的 video 可能不更新影格，所以留在畫面外 1px、透明 */
 #cam {
-  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 #intro {
@@ -183,7 +212,7 @@ body.running #intro {
 #simBadge {
   display: none;
   position: absolute;
-  left: 12px;
+  left: calc(12px + var(--safe-l));
   top: calc(12px + env(safe-area-inset-top, 0px));
   line-height: 1.3;
   font-size: 13px;
@@ -206,7 +235,7 @@ body.simulating .sim-only {
 
 #menuWrap {
   position: absolute;
-  right: 12px;
+  right: calc(12px + var(--safe-r));
   top: calc(12px + env(safe-area-inset-top, 0px));
   z-index: 3;
 }
@@ -258,7 +287,7 @@ button.icon {
   right: 0;
   bottom: 0;
   z-index: 2;
-  padding: 10px 0 calc(14px + var(--safe-b));
+  padding: 10px var(--safe-r) calc(14px + var(--safe-b)) var(--safe-l);
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35) 70%, transparent);
   display: flex;
   flex-direction: column;
@@ -422,6 +451,60 @@ button.chip[aria-expanded='true'] {
 #shutterRow {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 28px;
+}
+#shutterRow .side {
+  width: 48px;
+  display: flex;
+  justify-content: center;
+}
+button.icon.round {
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.18);
+}
+button[hidden] {
+  display: none;
+}
+
+/* 拍照後的預覽（手機）：分享／存到照片、下載、關閉 */
+#shotSheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) calc(16px + var(--safe-l));
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+#shotSheet[hidden] {
+  display: none;
+}
+#shotSheet img {
+  max-width: 100%;
+  max-height: 65vh;
+  min-height: 0;
+  border-radius: 8px;
+  /* 讓 iOS 可以長按圖片「加入照片」 */
+  -webkit-touch-callout: default;
+}
+#shotSheet .hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+#shotSheet .row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 .shutter {
   width: 72px;
@@ -533,4 +616,48 @@ button.chip.on {
 }
 body.dragging #dropHint {
   display: flex;
+}
+
+/* 手機橫式（高度矮）：操作區改成右側直欄，不蓋住畫面中央；快門在最下面 */
+@media (orientation: landscape) and (max-height: 520px) {
+  #dock {
+    left: auto;
+    top: 0;
+    width: min(46vw, 300px);
+    padding: calc(8px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) 0;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35) 70%, transparent);
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .preset .desc {
+    display: none;
+  }
+  .preset canvas {
+    width: 52px;
+    height: 52px;
+  }
+  .preset {
+    width: 60px;
+  }
+  .advanced {
+    max-height: 45vh;
+    overflow-y: auto;
+  }
+  .shutter {
+    width: 56px;
+    height: 56px;
+  }
+  #menuWrap {
+    right: auto;
+    left: calc(12px + var(--safe-l));
+  }
+  #menu {
+    right: auto;
+    left: 0;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+  }
+  body.simulating #simBadge {
+    top: calc(60px + var(--safe-t));
+  }
 }

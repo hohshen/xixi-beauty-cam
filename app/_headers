@@ -1,0 +1,27 @@
+# Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/).
+# Other static hosts ignore this file; see docs/deploy.md for the equivalent settings.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; style-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Permissions-Policy: camera=(self), microphone=(), geolocation=()
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+
+# The service worker and the page must always be revalidated, or updates never reach users.
+/sw.js
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+# Versioned paths: the version is in the URL, so they never change.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/vendor/mediapipe/models/*
+  Content-Type: application/octet-stream
+/vendor/mediapipe/tasks-vision@1.2.2/wasm/vision_wasm_internal.wasm
+  Content-Type: application/wasm

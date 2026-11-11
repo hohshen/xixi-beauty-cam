@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- SPDX-License-Identifier: Apache-2.0 — original icon for xixi-beauty-cam (scripts/make-icons.py draws the PNGs) -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0.35" y2="0.65" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#ff7a59" />
+      <stop offset="1" stop-color="#e84393" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="113" fill="url(#g)" />
+  <circle cx="256" cy="256" r="153.6" fill="#fff" />
+  <circle cx="256" cy="256" r="112.6" fill="url(#g)" />
+  <circle cx="256" cy="256" r="46" fill="#fff" fill-opacity="0.92" />
+  <path d="M409.6 35.8 L428.2 83.8 L476.2 102.4 L428.2 121 L409.6 169 L391 121 L343 102.4 L391 83.8 Z" fill="#fff" />
+</svg>

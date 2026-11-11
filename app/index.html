@@ -4,9 +4,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- 隱私：頁面只能連自己的網域（connect-src 'self'），影像與第三方程式（含 MediaPipe 內建的使用統計）都送不出去。
+         'wasm-unsafe-eval' 讓 MediaPipe 的 WebAssembly 可以編譯；不開放一般的 eval。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; style-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>xixi-beauty-cam</title>
-    <!-- 空 favicon：避免瀏覽器多發一個 /favicon.ico 請求，方便在 Network 面板核對請求清單 -->
-    <link rel="icon" href="data:," />
+    <meta name="description" content="在瀏覽器裡執行的美顏相機：濾鏡調整張畫面，美顏只修飾臉，點臉上的標籤逐人開關。畫面只在本機處理。" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <!-- PWA：安裝到主畫面後全螢幕開啟；iOS 用 apple-touch-icon 與 apple-mobile-web-app-* -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="美顏相機" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -45,6 +60,10 @@
             </select>
           </label>
           <label class="row"><input id="showBox" type="checkbox" checked /> 顯示臉框</label>
+          <label class="row"
+            >畫質
+            <select id="quality" title="自動：fps 連續 3 秒低於 24 時，降低偵測頻率或磨皮取樣數；有餘裕時再升回來"></select>
+          </label>
           <label class="row sim-only"><input id="simJitter" type="checkbox" checked /> 模擬鏡頭微抖動</label>
           <button id="menuCam">切回真鏡頭</button>
           <button id="menuSim">用照片模擬鏡頭</button>
@@ -142,13 +161,28 @@
           </div>
           <div id="beautyBar" class="preset-bar" role="radiogroup" aria-label="美顏"></div>
         </section>
+        <!-- 快門置中；左邊留同寬的空位，右邊是前後鏡頭切換（只有兩個以上鏡頭時顯示） -->
         <div id="shutterRow">
-          <button id="shot" class="shutter" disabled aria-label="拍照（下載 PNG）" title="拍照（下載 PNG）"></button>
+          <span class="side"></span>
+          <button id="shot" class="shutter" disabled aria-label="拍照" title="拍照"></button>
+          <span class="side"><button id="flip" class="icon round" type="button" hidden aria-label="切換到後鏡頭">⟲</button></span>
         </div>
       </div>
     </div>
 
-    <video id="cam" playsinline muted></video>
+    <!-- 拍照後（手機）：預覽，再由使用者選分享／存到照片或下載。照片只在本機，不上傳。 -->
+    <div id="shotSheet" role="dialog" aria-modal="true" aria-label="照片" hidden>
+      <img id="shotImg" alt="剛拍的照片" />
+      <p class="hint">iPhone：點「分享／存到照片」後選「儲存影像」，就會存進相簿。</p>
+      <div class="row">
+        <button id="shotShare" class="primary" type="button">分享／存到照片</button>
+        <button id="shotDownload" class="chip" type="button">下載</button>
+        <button id="shotClose" class="chip" type="button">關閉</button>
+      </div>
+    </div>
+
+    <!-- playsinline：iOS 不自動全螢幕播放；muted + autoplay：手機允許程式呼叫 play() -->
+    <video id="cam" playsinline muted autoplay></video>
     <script type="module" src="app.js"></script>
   </body>
 </html>

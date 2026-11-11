@@ -310,7 +310,7 @@ ok(
 );
 ok(
   /build\(tracker\.tracks, src\.width, src\.height, effect\.beauty\)/.test(app) &&
-    /renderer\.draw\(src\.el, maskCanvas, \{ beauty: effect\.beauty, filter: effect\.filter/.test(app),
+    /renderer\.draw\(src\.el, maskCanvas, \{\s*beauty: effect\.beauty,\s*filter: effect\.filter/.test(app),
   'app.js 每幀把美顏參數傳給 warp 與 renderer 的美顏，把濾鏡參數傳給 renderer 的調色',
 );
 const all = [

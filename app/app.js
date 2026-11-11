@@ -5,9 +5,10 @@
 // - 濾鏡：內建在 filters/*.xixi-filter.json（清單 filters/index.json），套在整張畫面，美顏關的人也一起套。
 // - 美顏：內建在 beauty/*.xixi-beauty.json（清單 beauty/index.json），只套在美顏開的人臉上，不調色。
 // 自訂與匯入的預設存在 localStorage；參數 × 強度由 look.js 算好傳給 renderer 與 warp。預設檔只當資料讀（presets.js 驗證），不執行。
-// 所有影像與 landmark 只在本機處理；對外網路請求只有下面三個固定版本的函式庫與模型（其餘是本機的程式與預設檔）。
+// 所有影像與 landmark 只在本機處理。MediaPipe 的 JS、WASM 與模型都放在 vendor/（固定版本），
+// 頁面只向自己的網域發請求；index.html 的 CSP（connect-src 'self'）擋掉其他網域，service worker（sw.js）快取全部檔案，離線也能用。
 
-import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/vision_bundle.mjs';
+import { FaceLandmarker, FilesetResolver } from './vendor/mediapipe/tasks-vision@1.2.2/vision_bundle.mjs';
 import { FaceTracker, faceBox } from './tracker.js';
 import { Renderer } from './renderer.js';
 import { WarpBuilder } from './warp.js';
@@ -27,9 +28,11 @@ import {
   isIdentity,
 } from './presets.js';
 import { Look, loadSelectedId, saveSelectedId } from './look.js';
+import { AutoQuality, QUALITY_LEVELS } from './quality.js';
 
-const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm';
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+// 都是同網域的相對路徑；版本與來源見 vendor/README.md
+const WASM_BASE = new URL('./vendor/mediapipe/tasks-vision@1.2.2/wasm', import.meta.url).href;
+const MODEL_URL = new URL('./vendor/mediapipe/models/face_landmarker/float16/1/face_landmarker.task', import.meta.url).href;
 
 const NUM_FACES = 6; // 卡片要求至少 4
 const MASK_SCALE = 0.5; // 遮罩解析度 = 影像的一半，柔邊本來就模糊，不需要全解析度
@@ -54,7 +57,12 @@ let landmarker;
 let stream;
 let rafId = null;
 let lastFrameId = -1;
-let frameNo = 0; // 濾鏡顆粒的亂數種子
+let frameNo = 0; // 濾鏡顆粒的亂數種子；也是自動降級「每幾幀偵測一次」的計數
+// 前後鏡頭：facing 是想要的方向；mirror 依實際開到的鏡頭決定（前鏡頭與沒回報方向的桌機鏡頭鏡像，後鏡頭不鏡像）
+let facing = params.get('facing') === 'environment' ? 'environment' : 'user';
+let mirror = true;
+// 自動降級：?quality=0..4 固定等級；沒給就自動（fps 連續 3 秒 < 24 降一級，連續 15 秒 ≥ 28 升一級）
+const quality = new AutoQuality({ fixed: params.get('quality') });
 
 // 影像來源：真鏡頭（<video>）或模擬鏡頭（照片畫進 canvas，每幀當一張鏡頭影格）。
 // 之後的偵測、遮罩、變形、渲染、拍照、量測都只看 src，兩種來源走同一條流程。
@@ -300,7 +308,8 @@ function updateThumbs(now) {
   for (const { thumb, css } of tabs[activeKind].items.values()) {
     const g = thumb.getContext('2d');
     g.filter = css;
-    g.setTransform(-1, 0, 0, 1, thumb.width, 0);
+    if (mirror) g.setTransform(-1, 0, 0, 1, thumb.width, 0);
+    else g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(src.el, sx, sy, side, side, 0, 0, thumb.width, thumb.height);
   }
 }
@@ -553,6 +562,7 @@ $('shot').addEventListener('click', () => {
   pendingShot = true;
 });
 $('start').addEventListener('click', start);
+$('flip').addEventListener('click', flipCamera);
 $('simBtn').addEventListener('click', () => $('simFile').click());
 $('simFile').addEventListener('change', (e) => {
   startSim(e.target.files[0]);
@@ -633,6 +643,8 @@ function stopSim() {
 function switchSource(next) {
   src = next;
   lastFrameId = -1;
+  quality.reset();
+  syncQualityUi();
   tracker.tracks.length = 0;
   warpBuilder.prev?.clear?.();
   renderLabels();
@@ -643,6 +655,7 @@ function switchSource(next) {
   $('menuCam').disabled = next.kind === 'camera';
   $('menuSim').textContent = next.kind === 'sim' ? '換一張照片' : '用照片模擬鏡頭';
   $('shot').disabled = false;
+  updateFlipButton();
   fitFrame();
   statusEl.textContent = '';
   if (rafId === null) rafId = requestAnimationFrame(loop);
@@ -653,10 +666,15 @@ async function start() {
   btn.disabled = true;
   try {
     statusEl.textContent = '開啟鏡頭中…';
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('這個瀏覽器不能取用鏡頭（需要 https 或 localhost，iOS 請用 Safari 或 iOS 14.3 以後的瀏覽器）');
+    }
     const { w, h } = camRequestSize();
+    // iOS 同時只能開一個鏡頭：先關掉舊的再要新的（切前後鏡頭時）
+    stopCamera();
     const s = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: 'user',
+        facingMode: { ideal: facing },
         width: { ideal: w },
         height: { ideal: h },
         frameRate: { ideal: 30 },
@@ -664,8 +682,10 @@ async function start() {
       audio: false,
     });
     stopSim();
-    stopCamera();
     stream = s;
+    const got = s.getVideoTracks()[0]?.getSettings?.().facingMode;
+    if (got === 'user' || got === 'environment') facing = got;
+    mirror = (got ?? facing) !== 'environment';
     video.srcObject = stream;
     await new Promise((r) => {
       video.onloadedmetadata = r;
@@ -683,11 +703,40 @@ async function start() {
       },
       frameId: () => (video.readyState < 2 ? -1 : video.currentTime),
     });
+    return true;
   } catch (err) {
     console.error(err);
     statusEl.textContent = `無法啟動：${err.name || ''} ${err.message || err}`;
     btn.disabled = false;
+    return false;
   }
+}
+
+// 前後鏡頭切換：只在有兩個以上鏡頭時顯示（取得鏡頭權限後 enumerateDevices 才列得出來）
+async function updateFlipButton() {
+  const flip = $('flip');
+  let n = 0;
+  try {
+    n = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput').length;
+  } catch {
+    /* 列不出鏡頭就不顯示切換鈕 */
+  }
+  flip.hidden = !(src?.kind === 'camera' && n > 1);
+  flip.setAttribute('aria-label', facing === 'user' ? '切換到後鏡頭' : '切換到前鏡頭');
+  flip.title = flip.getAttribute('aria-label');
+}
+
+async function flipCamera() {
+  const flip = $('flip');
+  flip.disabled = true;
+  const prev = facing;
+  facing = facing === 'user' ? 'environment' : 'user';
+  if (!(await start())) {
+    // 另一顆鏡頭打不開（被別的 app 佔用、權限）：開回原本那顆
+    facing = prev;
+    await start();
+  }
+  flip.disabled = false;
 }
 
 // ---------- 模擬鏡頭 ----------
@@ -707,6 +756,7 @@ async function startSim(file) {
     await img.decode();
     stopCamera();
     stopSim();
+    mirror = true;
     sim.img = img;
     sim.url = url;
     sim.frame = 0;
@@ -766,16 +816,27 @@ function loop() {
   lastFrameId = fid;
   const t0 = performance.now();
 
-  const result = landmarker.detectForVideo(src.el, t0);
-  const faces = (result.faceLandmarks || []).map((lm) => ({ ...faceBox(lm), landmarks: lm }));
-  tracker.update(faces);
+  // 自動降級 L2 以上隔幀偵測：沒偵測的影格沿用上一次的 landmark（遮罩與變形照樣每幀重畫）
+  if (quality.shouldDetect(frameNo)) {
+    const result = landmarker.detectForVideo(src.el, t0);
+    const faces = (result.faceLandmarks || []).map((lm) => ({ ...faceBox(lm), landmarks: lm }));
+    tracker.update(faces);
+  }
   const t1 = performance.now();
 
   drawMask();
   const warp = warpBuilder.build(tracker.tracks, src.width, src.height, effect.beauty);
   const t2 = performance.now();
 
-  renderer.draw(src.el, maskCanvas, { beauty: effect.beauty, filter: effect.filter, viewMode: ui.viewMode, warp, seed: frameNo++ });
+  renderer.draw(src.el, maskCanvas, {
+    beauty: effect.beauty,
+    filter: effect.filter,
+    viewMode: ui.viewMode,
+    mirror,
+    warp,
+    seed: frameNo++,
+    radius: quality.current.radius,
+  });
   if (pendingShot) {
     // 同一個 task 內、緩衝區被清掉前讀取，拍到的就是這一幀預覽
     pendingShot = false;
@@ -796,12 +857,17 @@ function loop() {
     perf.fps = (perf.frames * 1000) / (now - perf.windowStart);
     perf.frames = 0;
     perf.windowStart = now;
+    if (quality.update(perf.fps)) {
+      console.info(`自動降級：${perf.fps.toFixed(1)} fps → ${quality.current.label}`);
+      syncQualityUi();
+    }
     statsEl.textContent =
       `預覽 ${perf.fps.toFixed(1)} fps（${src.width}×${src.height}${src.kind === 'sim' ? '，模擬鏡頭' : ''}）\n` +
       `偵測 ${perf.detectMs.toFixed(1)} ms\n` +
       `遮罩＋變形參數 ${perf.maskMs.toFixed(1)} ms\n` +
       `繪製 ${perf.drawMs.toFixed(1)} ms\n` +
       `每幀 JS 合計 ${perf.frameMs.toFixed(1)} ms\n` +
+      `畫質 ${quality.current.label}（${quality.auto ? '自動' : '固定'}）\n` +
       `人數 ${tracker.tracks.filter((t) => t.missed === 0).length}\n` +
       TAB_LIST.map((t) => `${t.kind.label} ${t.look.preset.name} ${t.look.strength}%${t.look.tuned ? '（已微調）' : ''}`).join('\n');
   }
@@ -837,8 +903,8 @@ function renderLabels() {
       el = { box, tag, state: '' };
       labelEls.set(t.id, el);
     }
-    // 畫面是鏡像的，x 要翻過來
-    const left = 1 - (t.cx + t.w / 2);
+    // 前鏡頭畫面是鏡像的，x 要翻過來；後鏡頭不鏡像
+    const left = mirror ? 1 - (t.cx + t.w / 2) : t.cx - t.w / 2;
     el.box.style.left = `${left * 100}%`;
     el.box.style.top = `${(t.cy - t.h / 2) * 100}%`;
     el.box.style.width = `${t.w * 100}%`;
@@ -863,16 +929,120 @@ function renderLabels() {
 }
 
 // ---------- 拍照 ----------
+// 桌機：直接下載 PNG。觸控裝置且瀏覽器能分享檔案（iOS Safari、Android Chrome）：拍完顯示預覽，
+// 使用者再點「分享／存到照片」開系統分享面板（iOS 可選「儲存影像」存進相簿），或點「下載」。
+// 分享面板一定要在使用者這一次點擊裡打開（Safari 的規定），所以不在拍照那一刻自動跳出。
+const shotSheet = { blob: null, url: null, name: '' };
+
+function shotName() {
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
+  return `xixi-beauty-cam-${ts}.png`;
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.download = name;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function canShareFiles(file) {
+  try {
+    return !!navigator.canShare?.({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+
 function savePng() {
   canvas.toBlob((blob) => {
     if (!blob) return;
-    const a = document.createElement('a');
-    const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
-    a.download = `xixi-beauty-cam-${ts}.png`;
-    a.href = URL.createObjectURL(blob);
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const name = shotName();
+    const touch = matchMedia('(pointer: coarse)').matches;
+    if (!touch || !canShareFiles(new File([blob], name, { type: 'image/png' }))) {
+      downloadBlob(blob, name);
+      return;
+    }
+    openShotSheet(blob, name);
   }, 'image/png');
+}
+
+function openShotSheet(blob, name) {
+  closeShotSheet();
+  shotSheet.blob = blob;
+  shotSheet.name = name;
+  shotSheet.url = URL.createObjectURL(blob);
+  $('shotImg').src = shotSheet.url;
+  $('shotSheet').hidden = false;
+}
+
+function closeShotSheet() {
+  $('shotSheet').hidden = true;
+  $('shotImg').removeAttribute('src');
+  if (shotSheet.url) URL.revokeObjectURL(shotSheet.url);
+  shotSheet.blob = shotSheet.url = null;
+}
+
+$('shotShare').addEventListener('click', async () => {
+  if (!shotSheet.blob) return;
+  const file = new File([shotSheet.blob], shotSheet.name, { type: 'image/png' });
+  try {
+    await navigator.share({ files: [file] });
+    closeShotSheet();
+  } catch (err) {
+    if (err?.name === 'AbortError') return; // 使用者自己關掉分享面板
+    console.warn('分享失敗，改成下載', err);
+    downloadBlob(shotSheet.blob, shotSheet.name);
+    closeShotSheet();
+  }
+});
+$('shotDownload').addEventListener('click', () => {
+  if (shotSheet.blob) downloadBlob(shotSheet.blob, shotSheet.name);
+  closeShotSheet();
+});
+$('shotClose').addEventListener('click', closeShotSheet);
+
+// ---------- 畫質（自動降級） ----------
+function syncQualityUi() {
+  $('quality').value = quality.auto ? 'auto' : String(quality.fixed);
+}
+$('quality').replaceChildren(
+  new Option('自動（fps < 24 時降級）', 'auto'),
+  ...QUALITY_LEVELS.map((q) => new Option(`固定 ${q.label}`, String(q.level))),
+);
+syncQualityUi();
+$('quality').addEventListener('change', (e) => {
+  quality.setFixed(e.target.value);
+  if (quality.auto) quality.reset();
+});
+
+// ---------- 手機：轉向、切到背景 ----------
+// 轉向後影像比例會變（手機鏡頭跟著轉），重新算 #frame；有些瀏覽器 resize 事件比畫面晚，再補一次
+screen.orientation?.addEventListener?.('change', () => {
+  fitFrame();
+  setTimeout(fitFrame, 300);
+});
+// 手機切到背景再回來：<video> 可能被暫停（接著播），鏡頭也可能被系統收回（track 變 ended，重開鏡頭）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || src?.kind !== 'camera') return;
+  if (!stream || stream.getVideoTracks().every((t) => t.readyState === 'ended')) {
+    start();
+  } else if (video.paused) {
+    video.play().catch(() => {});
+  }
+});
+
+// ---------- 離線（PWA） ----------
+// sw.js 在第一次載入時把頁面、MediaPipe 與模型全部存進快取；之後斷網重新整理也能開啟並偵測人臉。
+if ('serviceWorker' in navigator && !params.has('nosw')) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    flash(hadController ? '新版本已下載，重新整理後使用' : '離線檔案已存好，之後沒有網路也能開啟', 6000);
+  });
+  navigator.serviceWorker.register(new URL('./sw.js', import.meta.url), { scope: './' }).catch((err) => {
+    console.warn('service worker 註冊失敗，離線功能不可用', err);
+  });
 }
 
 // ---------- 釋放 ----------
@@ -901,6 +1071,13 @@ window.beautyCam = {
   warpBuilder,
   get source() {
     return src?.kind ?? null;
+  },
+  quality,
+  get mirror() {
+    return mirror;
+  },
+  get facing() {
+    return facing;
   },
 };
 if (params.has('autostart')) start();
