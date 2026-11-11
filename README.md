@@ -68,7 +68,7 @@ xixi-beauty-cam is a Progressive Web App. On the first visit a service worker st
 
 On phones the shutter shows a preview with **分享／存到照片** (opens the system share sheet; on iPhone choose _Save Image_ to put it in Photos) and **下載**. The ⟲ button next to the shutter switches between the front and rear camera. If the preview drops below 24 fps for 3 seconds, the app lowers its quality step by step (smoothing samples, then face detection every 2nd or 3rd frame); the current level is shown in the ⋯ menu's fps panel, where you can also pin a level.
 
-To publish it, put the `app/` folder on any static host — see [docs/deploy.md](docs/deploy.md).
+To publish it, put the `app/` folder on any static host — see [docs/deploy.md](docs/deploy.md). For Cloudflare Pages there is a ready-made script: after a one-time setup, `deploy/cloudflare/deploy.sh` checks, tests and deploys in one command (see [deploy/cloudflare/README.md](deploy/cloudflare/README.md)).
 
 ## Make your own filter or beauty preset
 

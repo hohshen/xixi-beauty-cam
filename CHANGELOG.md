@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto quality: when the preview stays under 24 fps for 3 s, the bilateral filter uses fewer samples and face detection runs every 2nd or 3rd frame; the level is shown in the fps panel and can be pinned (`?quality=0..4` or the ⋯ menu).
 - `docs/deploy.md` (Cloudflare Pages and other static hosts) and `app/_headers`.
 - Phone test steps for iPhone Safari and Android Chrome in the README; `tests/pwa.test.mjs`.
+- `deploy/cloudflare/` (`wrangler.toml`, `deploy.sh`, setup guide): one command to deploy to Cloudflare Pages after checking for a clean tree, tests, lint, preset validation and a matching service worker cache version; `main` goes to production, other branches to preview (`--preview`, `--dry-run`). CI runs ShellCheck on the script (`npm run lint:sh`).
 
 ### Changed
 

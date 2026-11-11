@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Cloudflare Pages settings for xixi-beauty-cam (https://developers.cloudflare.com/pages/functions/wrangler-configuration/).
+# deploy.sh runs Wrangler from this folder, so Wrangler reads this file.
+# No account ID, token or other secret belongs here: log in with `npx wrangler login`,
+# or set CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID in your shell (never in a file in this repo).
+
+name = "xixi-beauty-cam"
+# Relative to this file: the repository's app/ folder is the whole site (no build step).
+pages_build_output_dir = "../../app"
+compatibility_date = "2026-11-01"
