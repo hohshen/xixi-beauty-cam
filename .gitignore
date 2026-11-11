@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+.env
+.env.*
+coverage/
+
+# Never commit test photos or captures of people.
+*.jpg
+*.jpeg
+*.heic
+*.mp4
+*.mov
+xixi-beauty-cam-*.png
+beauty-cam-*.png
+
+# Local editor/agent state
+.claude/

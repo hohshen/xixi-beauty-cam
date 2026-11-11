@@ -1,0 +1,32 @@
+{
+  "name": "xixi-beauty-cam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "In-browser beauty camera with whole-frame color filters and per-face beauty you can switch off person by person.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hohshen/xixi-beauty-cam.git"
+  },
+  "homepage": "https://github.com/hohshen/xixi-beauty-cam#readme",
+  "bugs": {
+    "url": "https://github.com/hohshen/xixi-beauty-cam/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint . && prettier --check .",
+    "lint:commits": "commitlint --from HEAD~1 --to HEAD --verbose",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10"
+  }
+}
