@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "film",
+  "name": "膠片",
+  "author": "xixi-beauty-cam",
+  "description": "褪色、帶顆粒的底片感",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 0,
+    "contrast": -10,
+    "saturation": -15,
+    "temperature": 10,
+    "tint": 5,
+    "fade": 25,
+    "vignette": 20,
+    "grain": 15
+  }
+}

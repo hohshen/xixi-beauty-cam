@@ -1,0 +1,13 @@
+{
+  "format": "xixi-filter-index",
+  "version": 1,
+  "default": "none",
+  "presets": [
+    "none.xixi-filter.json",
+    "fresh.xixi-filter.json",
+    "warm.xixi-filter.json",
+    "cool.xixi-filter.json",
+    "film.xixi-filter.json",
+    "mono.xixi-filter.json"
+  ]
+}

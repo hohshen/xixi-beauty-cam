@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "warm",
+  "name": "暖陽",
+  "author": "xixi-beauty-cam",
+  "description": "午後陽光的暖色",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 3,
+    "contrast": 5,
+    "saturation": 5,
+    "temperature": 25,
+    "tint": 5,
+    "fade": 5,
+    "vignette": 10,
+    "grain": 0
+  }
+}

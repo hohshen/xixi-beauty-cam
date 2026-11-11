@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "fresh",
+  "name": "清新",
+  "author": "xixi-beauty-cam",
+  "description": "明亮、色彩乾淨",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 5,
+    "contrast": -5,
+    "saturation": 10,
+    "temperature": -5,
+    "tint": 0,
+    "fade": 0,
+    "vignette": 0,
+    "grain": 0
+  }
+}

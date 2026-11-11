@@ -1,0 +1,13 @@
+{
+  "format": "xixi-beauty-index",
+  "version": 1,
+  "default": "natural",
+  "presets": [
+    "none.xixi-beauty.json",
+    "natural.xixi-beauty.json",
+    "clear.xixi-beauty.json",
+    "bright.xixi-beauty.json",
+    "refined.xixi-beauty.json",
+    "glam.xixi-beauty.json"
+  ]
+}

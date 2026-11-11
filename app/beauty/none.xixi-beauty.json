@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "none",
+  "name": "無美顏",
+  "author": "xixi-beauty-cam",
+  "description": "不修飾臉部",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 0,
+    "whiten": 0,
+    "slim": 0,
+    "eye": 0
+  }
+}

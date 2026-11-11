@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "natural",
+  "name": "自然",
+  "author": "xixi-beauty-cam",
+  "description": "看不太出來的修飾",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 35,
+    "whiten": 10,
+    "slim": 10,
+    "eye": 10
+  }
+}

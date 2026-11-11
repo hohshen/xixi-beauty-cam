@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "xixi-beauty.schema.json",
+  "title": "xixi-beauty-cam 美顏預設檔（*.xixi-beauty.json）",
+  "description": "一個美顏預設一個檔。美顏只套在「美顏開」的人臉上（磨皮、美白、瘦臉、大眼），不調色；整張畫面的調色是濾鏡（*.xixi-filter.json）。檔案只是資料：app 只讀下列欄位，不執行檔案內容，也不載入檔案裡的任何網址。不認得的欄位會被忽略（additionalProperties 保持開放，留空間給之後的新欄位）。",
+  "type": "object",
+  "required": ["format", "version", "id", "name", "params"],
+  "properties": {
+    "format": {
+      "description": "固定字串，用來認出這是 xixi-beauty-cam 的美顏預設檔。",
+      "const": "xixi-beauty"
+    },
+    "version": {
+      "description": "格式版本，從 1 開始。app 能讀比自己新的版本，只取認得的欄位。",
+      "type": "integer",
+      "minimum": 1
+    },
+    "id": {
+      "description": "代號：小寫英數與連字號，開頭須為英數，最長 64 字。內建清單裡不可重複；匯入時撞名，app 會自動加尾碼。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "name": {
+      "description": "預設列上顯示的名稱，純文字（不解讀 HTML），1–20 字。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "author": {
+      "description": "作者名稱，純文字，最長 40 字。缺少時當成空字串。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "description": {
+      "description": "一句話說明，純文字，最長 60 字。缺少時當成空字串。",
+      "type": "string",
+      "maxLength": 60
+    },
+    "license": {
+      "description": "授權，建議用 SPDX 代號（例如 CC0-1.0、CC-BY-4.0）。缺少時當成空字串（未標授權）。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "params": {
+      "description": "四項美顏參數，0–100，0 為不修飾。缺的參數當成 0；超出範圍的值會被夾到 0–100，小數四捨五入。不認得的參數會被忽略。",
+      "type": "object",
+      "properties": {
+        "smooth": {
+          "description": "磨皮",
+          "type": "number"
+        },
+        "whiten": {
+          "description": "美白（膚色提亮）",
+          "type": "number"
+        },
+        "slim": {
+          "description": "瘦臉",
+          "type": "number"
+        },
+        "eye": {
+          "description": "大眼",
+          "type": "number"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "format": "xixi-beauty",
+      "version": 1,
+      "id": "soft-glow",
+      "name": "柔光",
+      "author": "小明",
+      "description": "磨皮多一點、微微提亮",
+      "license": "CC0-1.0",
+      "params": {
+        "smooth": 60,
+        "whiten": 30,
+        "slim": 10,
+        "eye": 5
+      }
+    }
+  ]
+}

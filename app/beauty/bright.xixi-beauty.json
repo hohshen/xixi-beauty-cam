@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "bright",
+  "name": "亮白",
+  "author": "xixi-beauty-cam",
+  "description": "明顯提亮膚色",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 45,
+    "whiten": 75,
+    "slim": 15,
+    "eye": 15
+  }
+}

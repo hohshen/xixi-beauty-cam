@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "refined",
+  "name": "精緻",
+  "author": "xixi-beauty-cam",
+  "description": "臉型與眼睛修飾",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 55,
+    "whiten": 25,
+    "slim": 40,
+    "eye": 35
+  }
+}

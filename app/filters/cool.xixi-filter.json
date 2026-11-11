@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "cool",
+  "name": "冷白",
+  "author": "xixi-beauty-cam",
+  "description": "偏冷的乾淨白",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 8,
+    "contrast": 0,
+    "saturation": -10,
+    "temperature": -20,
+    "tint": 0,
+    "fade": 5,
+    "vignette": 0,
+    "grain": 0
+  }
+}

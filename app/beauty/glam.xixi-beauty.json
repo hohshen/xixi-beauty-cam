@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "glam",
+  "name": "網紅",
+  "author": "xixi-beauty-cam",
+  "description": "效果最強",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 75,
+    "whiten": 50,
+    "slim": 55,
+    "eye": 50
+  }
+}

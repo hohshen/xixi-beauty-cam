@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "mono",
+  "name": "黑白",
+  "author": "xixi-beauty-cam",
+  "description": "高對比黑白",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 0,
+    "contrast": 15,
+    "saturation": -100,
+    "temperature": 0,
+    "tint": 0,
+    "fade": 5,
+    "vignette": 15,
+    "grain": 10
+  }
+}

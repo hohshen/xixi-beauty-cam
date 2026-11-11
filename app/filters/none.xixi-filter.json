@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "none",
+  "name": "原圖",
+  "author": "xixi-beauty-cam",
+  "description": "不調色",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 0,
+    "contrast": 0,
+    "saturation": 0,
+    "temperature": 0,
+    "tint": 0,
+    "fade": 0,
+    "vignette": 0,
+    "grain": 0
+  }
+}

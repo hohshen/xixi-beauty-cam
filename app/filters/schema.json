@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "xixi-filter.schema.json",
+  "title": "xixi-beauty-cam 濾鏡檔（*.xixi-filter.json）",
+  "description": "一個濾鏡一個檔。濾鏡是套在整張畫面的調色，所有人和背景一起套，不分人。檔案只是資料：app 只讀下列欄位，不執行檔案內容，也不載入檔案裡的任何網址。不認得的欄位會被忽略（additionalProperties 保持開放，留空間給之後的新欄位）。",
+  "type": "object",
+  "required": ["format", "version", "id", "name", "params"],
+  "properties": {
+    "format": {
+      "description": "固定字串，用來認出這是 xixi-beauty-cam 的濾鏡檔。",
+      "const": "xixi-filter"
+    },
+    "version": {
+      "description": "格式版本，從 1 開始。app 能讀比自己新的版本，只取認得的欄位。",
+      "type": "integer",
+      "minimum": 1
+    },
+    "id": {
+      "description": "代號：小寫英數與連字號，開頭須為英數，最長 64 字。內建清單裡不可重複；匯入時撞名，app 會自動加尾碼。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "name": {
+      "description": "預設列上顯示的名稱，純文字（不解讀 HTML），1–20 字。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "author": {
+      "description": "作者名稱，純文字，最長 40 字。缺少時當成空字串。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "description": {
+      "description": "一句話說明，純文字，最長 60 字。缺少時當成空字串。",
+      "type": "string",
+      "maxLength": 60
+    },
+    "license": {
+      "description": "授權，建議用 SPDX 代號（例如 CC0-1.0、CC-BY-4.0）。缺少時當成空字串（未標授權）。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "params": {
+      "description": "八項調色參數，0 為不變。顆粒 0–100，其餘 -100–100。缺的參數當成 0；超出範圍的值會被夾到範圍內，小數四捨五入。不認得的參數會被忽略。",
+      "type": "object",
+      "properties": {
+        "exposure": {
+          "description": "曝光（-100 暗 1 檔～+100 亮 1 檔）",
+          "type": "number"
+        },
+        "contrast": {
+          "description": "對比（-100～100）",
+          "type": "number"
+        },
+        "saturation": {
+          "description": "飽和（-100 黑白～+100 兩倍）",
+          "type": "number"
+        },
+        "temperature": {
+          "description": "色溫（負值偏冷藍、正值偏暖黃）",
+          "type": "number"
+        },
+        "tint": {
+          "description": "色調（負值偏綠、正值偏洋紅）",
+          "type": "number"
+        },
+        "fade": {
+          "description": "褪色（正值黑位抬高的底片感，負值黑位壓深）",
+          "type": "number"
+        },
+        "vignette": {
+          "description": "暗角（正值四角變暗、負值變亮）",
+          "type": "number"
+        },
+        "grain": {
+          "description": "顆粒（0～100）",
+          "type": "number"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "format": "xixi-filter",
+      "version": 1,
+      "id": "soft-film",
+      "name": "淡淡底片",
+      "author": "小明",
+      "description": "微暖、輕微褪色",
+      "license": "CC0-1.0",
+      "params": {
+        "exposure": 0,
+        "contrast": -5,
+        "saturation": -10,
+        "temperature": 8,
+        "tint": 0,
+        "fade": 15,
+        "vignette": 10,
+        "grain": 5
+      }
+    }
+  ]
+}
