@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# Vendored third-party files: keep them byte-identical (their SHA-256 is checked in tests/pwa.test.mjs)
+app/vendor/** -text
