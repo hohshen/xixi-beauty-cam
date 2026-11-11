@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
 ### Added
 
 - Progressive Web App: `manifest.webmanifest` (standalone, portrait), original app icons (`scripts/make-icons.py`), and a service worker that caches the whole app including MediaPipe and the model, so it opens and detects faces offline after the first visit.
@@ -38,5 +40,6 @@ First public release.
 - "Use a photo as the camera" test input, mask view, difference ×20 view (against the filter-only frame) and an fps / timing panel.
 - Node test suites for presets and both preset formats, a browser warp test, ESLint and Prettier, commitlint for Conventional Commits, and GitHub Actions CI.
 
-[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hohshen/xixi-beauty-cam/releases/tag/v0.1.0

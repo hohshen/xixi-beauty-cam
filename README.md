@@ -11,7 +11,7 @@ English | [繁體中文](README.zh-TW.md)
   <img src="docs/images/hero.svg" width="560" alt="Two cartoon faces: Person 1 with the beauty filter on, Person 2 switched off and left untouched">
 </p>
 
-> **Status: early prototype (0.1.0).** The image pipeline and both preset formats are covered by automated tests, but the full UI has only been checked on desktop Chrome so far. See [Known limitations](docs/architecture.md#known-limitations).
+> **Status: early prototype (0.2.0).** The image pipeline and both preset formats are covered by automated tests, but the full UI has only been checked on desktop Chrome so far. See [Known limitations](docs/architecture.md#known-limitations).
 
 ## Quick start
 

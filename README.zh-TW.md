@@ -11,7 +11,7 @@
   <img src="docs/images/hero.svg" width="560" alt="兩張卡通臉：人物 1 美顏開，人物 2 美顏關、維持原貌">
 </p>
 
-> **狀態：早期原型（0.1.0）。** 影像管線與濾鏡、美顏兩種檔案格式有自動測試，完整介面目前只在桌面版 Chrome 確認過。見[已知限制](docs/architecture.md#known-limitations)。
+> **狀態：早期原型（0.2.0）。** 影像管線與濾鏡、美顏兩種檔案格式有自動測試，完整介面目前只在桌面版 Chrome 確認過。見[已知限制](docs/architecture.md#known-limitations)。
 
 ## 快速開始
 
