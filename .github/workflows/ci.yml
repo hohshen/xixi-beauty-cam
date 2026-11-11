@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and lint (Node LTS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js (LTS)
+        uses: actions/setup-node@v6.0.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dev tools
+        run: npm ci
+
+      - name: Unit tests
+        run: |
+          node tests/presets.test.mjs
+          node tests/preset-format.test.mjs
+
+      - name: Validate filter and beauty preset files against the schemas
+        run: npm run validate:presets
+
+      - name: Lint (ESLint + Prettier)
+        run: npm run lint
+
+  commitlint:
+    name: Commit messages (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js (LTS)
+        uses: actions/setup-node@v6.0.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dev tools
+        run: npm ci
+
+      - name: Check every commit in the pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+      - name: Check the pull request title (used as the squash commit message)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
