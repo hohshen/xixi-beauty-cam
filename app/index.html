@@ -1,0 +1,154 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>xixi-beauty-cam</title>
+    <!-- 空 favicon：避免瀏覽器多發一個 /favicon.ico 請求，方便在 Network 面板核對請求清單 -->
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 全螢幕預覽：#frame 依影像比例縮放、置中且不裁切；標籤的位置以 #frame 的百分比計算 -->
+    <div id="stage">
+      <div id="frame">
+        <canvas id="view"></canvas>
+        <div id="labels"></div>
+      </div>
+
+      <!-- 開始前置中的入口；開始後隱藏 -->
+      <div id="intro">
+        <p class="hint">濾鏡調整張畫面的色調，美顏只修飾臉；點臉上的標籤就能逐人開關美顏。畫面只在本機處理，不會上傳。</p>
+        <button id="start" class="primary">開啟鏡頭</button>
+        <button id="simBtn" class="link" title="測試用：選一張 jpg／png 當成鏡頭畫面，照片只在瀏覽器內讀取，不會上傳">
+          用照片模擬鏡頭
+        </button>
+      </div>
+      <input id="simFile" type="file" accept="image/jpeg,image/png" hidden />
+      <input id="importFile" type="file" accept=".json,application/json" multiple hidden />
+      <div id="dropHint">放開以匯入濾鏡（.xixi-filter.json）或美顏預設（.xixi-beauty.json）</div>
+
+      <div id="simBadge">模擬鏡頭</div>
+      <div id="status" role="status"></div>
+
+      <!-- 角落小選單：fps、檢視模式、臉框、來源切換，不佔主畫面 -->
+      <div id="menuWrap">
+        <button id="menuBtn" class="icon" aria-expanded="false" aria-controls="menu" title="選單">⋯</button>
+        <div id="menu" hidden>
+          <label class="row"
+            >檢視
+            <select id="viewMode">
+              <option value="0">正常</option>
+              <option value="1">遮罩</option>
+              <option value="2">美顏差異 ×20（比對只套濾鏡的畫面）</option>
+            </select>
+          </label>
+          <label class="row"><input id="showBox" type="checkbox" checked /> 顯示臉框</label>
+          <label class="row sim-only"><input id="simJitter" type="checkbox" checked /> 模擬鏡頭微抖動</label>
+          <button id="menuCam">切回真鏡頭</button>
+          <button id="menuSim">用照片模擬鏡頭</button>
+          <button id="menuImport" title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；也可以直接把檔案拖進頁面">
+            匯入濾鏡／美顏檔
+          </button>
+          <pre id="stats">fps —</pre>
+        </div>
+      </div>
+
+      <!-- 底部操作：分頁（濾鏡／美顏）→ 該分頁的強度滑桿與預設列 → 快門。
+           濾鏡 = 整張畫面的調色；美顏 = 只在「美顏開」的人臉上磨皮、美白、瘦臉、大眼，不調色。 -->
+      <div id="dock">
+        <div id="tabs" role="tablist" aria-label="效果">
+          <button id="tab-filter" role="tab" type="button" data-kind="filter" aria-controls="panel-filter" aria-selected="true">
+            濾鏡
+          </button>
+          <button id="tab-beauty" role="tab" type="button" data-kind="beauty" aria-controls="panel-beauty" aria-selected="false">
+            美顏
+          </button>
+        </div>
+        <section id="panel-filter" class="panel" role="tabpanel" aria-labelledby="tab-filter" data-kind="filter">
+          <div class="strength-row">
+            <label for="filterStrength" class="strength-name"></label>
+            <input id="filterStrength" class="strength" type="range" min="0" max="100" value="100" aria-label="濾鏡強度" />
+            <output class="strength-val" for="filterStrength">100%</output>
+            <button class="chip adv-btn" type="button" aria-expanded="false" aria-controls="filterAdvanced">進階</button>
+          </div>
+          <div id="filterAdvanced" class="advanced" hidden>
+            <p class="adv-hint">
+              微調整張畫面的調色（強度滑桿再等比縮放）。所有人和背景一起套。換濾鏡就回到預設；要留下來就「另存為我的濾鏡」。
+            </p>
+            <div class="adv-sliders"></div>
+            <button class="link adv-reset" type="button">還原這個濾鏡</button>
+            <!-- 自製與分享：檔案只在瀏覽器內讀寫，不上傳 -->
+            <div class="file-row">
+              <button class="chip save-btn" type="button" title="把目前看到的調色（各項 × 強度）存成新濾鏡，放在濾鏡列尾端">
+                另存為我的濾鏡
+              </button>
+              <button class="chip export-btn" type="button" title="把目前選的濾鏡下載成 .xixi-filter.json，傳給別人">匯出這個濾鏡</button>
+              <button
+                class="chip import-btn"
+                type="button"
+                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；會依檔案格式自動放進對的分頁"
+              >
+                匯入檔案
+              </button>
+            </div>
+            <form class="save-form" hidden>
+              <label>名稱 <input class="save-name" maxlength="20" required placeholder="例如：我的濾鏡" /></label>
+              <label>作者 <input class="save-author" maxlength="40" placeholder="可留空" /></label>
+              <div class="row">
+                <button type="submit" class="chip on">儲存</button>
+                <button type="button" class="chip save-cancel">取消</button>
+              </div>
+            </form>
+          </div>
+          <div id="filterBar" class="preset-bar" role="radiogroup" aria-label="濾鏡"></div>
+        </section>
+        <section id="panel-beauty" class="panel" role="tabpanel" aria-labelledby="tab-beauty" data-kind="beauty" hidden>
+          <div class="strength-row">
+            <label for="beautyStrength" class="strength-name"></label>
+            <input id="beautyStrength" class="strength" type="range" min="0" max="100" value="100" aria-label="美顏強度" />
+            <output class="strength-val" for="beautyStrength">100%</output>
+            <button class="chip adv-btn" type="button" aria-expanded="false" aria-controls="beautyAdvanced">進階</button>
+          </div>
+          <div id="beautyAdvanced" class="advanced" hidden>
+            <p class="adv-hint">
+              微調臉部修飾（強度滑桿再等比縮放），只套在「美顏開」的人臉上，不調色。換預設就回到原值；要留下來就「另存為我的美顏」。
+            </p>
+            <div class="adv-sliders"></div>
+            <button class="link adv-reset" type="button">還原這個美顏</button>
+            <!-- 自製與分享：檔案只在瀏覽器內讀寫，不上傳 -->
+            <div class="file-row">
+              <button class="chip save-btn" type="button" title="把目前看到的美顏（各項 × 強度）存成新的美顏預設，放在列尾端">
+                另存為我的美顏
+              </button>
+              <button class="chip export-btn" type="button" title="把目前選的美顏下載成 .xixi-beauty.json，傳給別人">匯出這個美顏</button>
+              <button
+                class="chip import-btn"
+                type="button"
+                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；會依檔案格式自動放進對的分頁"
+              >
+                匯入檔案
+              </button>
+            </div>
+            <form class="save-form" hidden>
+              <label>名稱 <input class="save-name" maxlength="20" required placeholder="例如：我的美顏" /></label>
+              <label>作者 <input class="save-author" maxlength="40" placeholder="可留空" /></label>
+              <div class="row">
+                <button type="submit" class="chip on">儲存</button>
+                <button type="button" class="chip save-cancel">取消</button>
+              </div>
+            </form>
+          </div>
+          <div id="beautyBar" class="preset-bar" role="radiogroup" aria-label="美顏"></div>
+        </section>
+        <div id="shutterRow">
+          <button id="shot" class="shutter" disabled aria-label="拍照（下載 PNG）" title="拍照（下載 PNG）"></button>
+        </div>
+      </div>
+    </div>
+
+    <video id="cam" playsinline muted></video>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,536 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+:root {
+  --bg: #000;
+  --sheet: rgba(20, 22, 26, 0.82);
+  --text: #f2f2f2;
+  --muted: #a6acb2;
+  --on: #2fbf71;
+  --off: #6b7075;
+  --accent: #ff7a59; /* 選中的濾鏡外框、主按鈕；自訂色，不取自任何 app */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    15px/1.5 -apple-system,
+    'PingFang TC',
+    'Noto Sans TC',
+    sans-serif;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  font: inherit;
+  color: var(--text);
+  background: #2c3036;
+  border: 1px solid #3a3f45;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 17px;
+  padding: 10px 28px;
+  border-radius: 999px;
+}
+button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+}
+select {
+  font: inherit;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---------- 全螢幕預覽 ---------- */
+#stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+#frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%; /* app.js 依影像比例改成實際像素 */
+  line-height: 0;
+}
+#view {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#cam {
+  display: none;
+}
+
+#intro {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  width: min(90vw, 360px);
+}
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+#status {
+  position: absolute;
+  left: 50%;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: calc(100% - 32px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--sheet);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+#status:empty {
+  display: none;
+}
+body.running #intro {
+  display: none;
+}
+
+/* ---------- 臉框與人物標籤（維持在臉框上方） ---------- */
+.face-box {
+  position: absolute;
+  border: 2px solid var(--on);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.face-box.off {
+  border-color: var(--off);
+  border-style: dashed;
+}
+.face-box.lost {
+  opacity: 0.4;
+}
+.face-box.nobox {
+  border-color: transparent;
+}
+.tag {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -6px);
+  white-space: nowrap;
+  line-height: 1.3;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 0;
+  color: #fff;
+  background: var(--on);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.tag.off {
+  background: var(--off);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.tag .state {
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+  margin-left: 6px;
+}
+
+/* ---------- 角落 ---------- */
+#simBadge {
+  display: none;
+  position: absolute;
+  left: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  line-height: 1.3;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #e0a100;
+  color: #111;
+  pointer-events: none;
+}
+body.simulating #simBadge {
+  display: block;
+}
+.sim-only {
+  display: none !important;
+}
+body.simulating .sim-only {
+  display: flex !important;
+}
+
+#menuWrap {
+  position: absolute;
+  right: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  z-index: 3;
+}
+button.icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 0;
+  font-size: 22px;
+  line-height: 40px;
+}
+#menu {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: 240px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--sheet);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+#menu[hidden] {
+  display: none;
+}
+#menu button {
+  font-size: 14px;
+  padding: 6px 10px;
+}
+#stats {
+  margin: 0;
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    monospace;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+/* ---------- 底部：分頁（濾鏡／美顏）→ 強度 → 預設列 → 快門 ---------- */
+#dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 10px 0 calc(14px + var(--safe-b));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+#tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+}
+#tabs [role='tab'] {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+#tabs [role='tab'][aria-selected='true'] {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.panel[hidden] {
+  display: none;
+}
+.strength-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100% - 32px, 480px);
+  font-size: 13px;
+}
+.strength-row[hidden] {
+  display: none;
+}
+.strength-name {
+  min-width: 2.5em;
+  font-weight: 600;
+}
+.strength {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.strength-val {
+  min-width: 3.2em;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+button.chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 0;
+}
+button.chip[aria-expanded='true'] {
+  background: var(--accent);
+}
+
+.advanced {
+  width: min(100% - 32px, 480px);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sheet);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.advanced[hidden] {
+  display: none;
+}
+.adv-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.adv {
+  display: grid;
+  grid-template-columns: 4.5em 1fr 2.2em;
+  gap: 8px;
+  align-items: center;
+}
+.adv input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.adv output {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.adv-reset {
+  align-self: flex-start;
+}
+
+.preset-bar {
+  display: flex;
+  gap: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 2px 16px;
+  scrollbar-width: none;
+}
+.preset-bar::-webkit-scrollbar {
+  display: none;
+}
+.preset {
+  flex: 0 0 auto;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  scroll-snap-align: center;
+  line-height: 1.25;
+}
+.preset canvas {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: #333;
+  display: block;
+}
+.preset[aria-checked='true'] canvas {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+.preset .name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.preset[aria-checked='true'] .name {
+  color: var(--accent);
+}
+.preset .desc {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+#shutterRow {
+  display: flex;
+  justify-content: center;
+}
+.shutter {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border-radius: 50%;
+  background: #fff;
+  border: 5px solid rgba(255, 255, 255, 0.45);
+  background-clip: padding-box;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+.shutter:active:not(:disabled) {
+  transform: scale(0.94);
+}
+body:not(.running) #dock {
+  opacity: 0.6;
+}
+
+/* 桌面橫式：濾鏡列與強度較寬，快門稍小；版面結構相同 */
+@media (min-aspect-ratio: 1/1) and (min-width: 900px) {
+  .preset {
+    width: 84px;
+  }
+  .preset canvas {
+    width: 70px;
+    height: 70px;
+  }
+  .shutter {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+/* ---------- 自製與分享（濾鏡、美顏預設） ---------- */
+#status {
+  white-space: pre-line;
+  border-radius: 14px;
+}
+.file-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.save-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.save-form[hidden] {
+  display: none;
+}
+.save-form label {
+  display: grid;
+  grid-template-columns: 3em 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.save-form input {
+  font: inherit;
+  color: var(--text);
+  background: #1c1f23;
+  border: 1px solid #3a3f45;
+  border-radius: 6px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+button.chip.on {
+  background: var(--accent);
+}
+.preset-item {
+  position: relative;
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+}
+.preset .badge {
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+.preset-item .remove {
+  position: absolute;
+  top: -4px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 20px;
+  background: #3a3f45;
+  border: 1px solid #555;
+}
+#dropHint {
+  display: none;
+  position: absolute;
+  inset: 12px;
+  z-index: 5;
+  border: 3px dashed var(--accent);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+body.dragging #dropHint {
+  display: flex;
+}
