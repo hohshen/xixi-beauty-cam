@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Feature request
+description: Suggest an idea or an improvement.
+title: 'feat: '
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation and why the current behavior is not enough.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work from the user's point of view?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      description: xixi-beauty-cam processes images only on the device.
+      options:
+        - label: This idea does not require sending images, landmarks or other face data off the device.
+          required: true

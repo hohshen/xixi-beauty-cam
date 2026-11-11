@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Something does not work as expected.
+title: 'bug: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Please do not attach photos or videos of real people** unless everyone shown has agreed. A description, a cartoon face or the numbers from the fps panel are usually enough.
+        Security problems belong in a [private report](https://github.com/hohshen/xixi-beauty-cam/security/advisories/new), not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app and use a photo as the camera
+        2. Select the "網紅" filter
+        3. Switch person 2 off
+        4. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Video source
+      options:
+        - Camera
+        - Photo as camera
+        - Not relevant
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 142
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: OS and device
+      placeholder: macOS 26, MacBook Air M3 / Android 16, Pixel 9
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      placeholder: 0.1.0 or a commit hash
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors and fps panel
+      description: Paste errors from DevTools → Console and the numbers from the ⋯ menu → fps panel, if relevant.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This report contains no images of people who have not agreed to it.
+          required: true

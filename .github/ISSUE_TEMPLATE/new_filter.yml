@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+name: New filter or beauty preset
+description: Propose a color filter or a beauty preset for the built-in set.
+title: 'filter: '
+labels: [filter]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A filter is whole-frame color grading (eight values from -100 to 100); a beauty preset is face-only retouching (four values from 0 to 100). See the [guide](https://github.com/hohshen/xixi-beauty-cam/blob/main/docs/filters.md). You are welcome to open a pull request directly instead; see [CONTRIBUTING.md](https://github.com/hohshen/xixi-beauty-cam/blob/main/CONTRIBUTING.md#contributing-a-filter-or-beauty-preset).
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: Shown in the filter bar, 1–20 characters.
+    validations:
+      required: true
+  - type: input
+    id: id
+    attributes:
+      label: ID
+      description: Lowercase letters, digits and "-", e.g. soft-glow.
+    validations:
+      required: true
+  - type: textarea
+    id: look
+    attributes:
+      label: Intended look
+      description: What should it look like, and who is it for?
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: File
+      description: Paste the exported .xixi-filter.json or .xixi-beauty.json content.
+      render: json
+    validations:
+      required: true
+  - type: checkboxes
+    id: license
+    attributes:
+      label: License
+      options:
+        - label: I release this filter or preset under CC0-1.0 so it can be included in the built-in set.
+          required: true
+        - label: I am not attaching photos of people who have not agreed to it.
+          required: true
