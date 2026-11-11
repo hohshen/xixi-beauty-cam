@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -51,7 +51,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
