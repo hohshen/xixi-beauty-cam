@@ -523,6 +523,12 @@ body:not(.running) #dock {
   opacity: 0.6;
 }
 
+/* 手機直式（app.js 依視窗方向加 body.portrait）：預覽 cover 填滿整個畫面，濾鏡縮圖跟著改成 3:4 直式 */
+body.portrait .preset canvas {
+  width: 54px;
+  height: 72px;
+}
+
 /* 桌面橫式：濾鏡列與強度較寬，快門稍小；版面結構相同 */
 @media (min-aspect-ratio: 1/1) and (min-width: 900px) {
   .preset {

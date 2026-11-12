@@ -29,6 +29,7 @@ import {
 } from './presets.js';
 import { Look, loadSelectedId, saveSelectedId } from './look.js';
 import { AutoQuality, QUALITY_LEVELS } from './quality.js';
+import { camRequest, centerCrop, frameFit, isPortrait, simSize, visibleRect } from './layout.js';
 
 // 都是同網域的相對路徑；版本與來源見 vendor/README.md
 const WASM_BASE = new URL('./vendor/mediapipe/tasks-vision@1.2.2/wasm', import.meta.url).href;
@@ -296,21 +297,26 @@ function thumbFilterCss(p) {
   return parts.join(' ');
 }
 
-// 縮圖：從原始影像取中央正方形、鏡像，約每 500 ms 更新一次（只更新目前分頁；只用 2D drawImage，不跑美顏）
+// 縮圖：從預覽看得到的範圍取中央一塊、鏡像，約每 500 ms 更新一次（只更新目前分頁；只用 2D drawImage，不跑美顏）。
+// 直式視窗用 3:4 直式縮圖（72×96），橫式用正方形（96×96）；CSS 尺寸由 body.portrait 切換。
 const THUMB_EVERY = 500;
 let thumbAt = 0;
 function updateThumbs(now) {
   if (now - thumbAt < THUMB_EVERY) return;
   thumbAt = now;
-  const side = Math.min(src.width, src.height);
-  const sx = (src.width - side) / 2,
-    sy = (src.height - side) / 2;
+  const tw = document.body.classList.contains('portrait') ? 72 : 96,
+    th = 96;
+  const r = centerCrop(visibleRect(src.width, src.height, innerWidth, innerHeight), tw / th);
   for (const { thumb, css } of tabs[activeKind].items.values()) {
+    if (thumb.width !== tw || thumb.height !== th) {
+      thumb.width = tw;
+      thumb.height = th;
+    }
     const g = thumb.getContext('2d');
     g.filter = css;
     if (mirror) g.setTransform(-1, 0, 0, 1, thumb.width, 0);
     else g.setTransform(1, 0, 0, 1, 0, 0);
-    g.drawImage(src.el, sx, sy, side, side, 0, 0, thumb.width, thumb.height);
+    g.drawImage(src.el, r.x, r.y, r.w, r.h, 0, 0, thumb.width, thumb.height);
   }
 }
 
@@ -603,21 +609,25 @@ function camSize() {
   return { w: Number(params.get('w')) || 1280, h: Number(params.get('h')) || 720 };
 }
 
-// 手機直式：沒指定解析度時向鏡頭要直式畫面，預覽才不會上下大片黑邊
+// 向鏡頭要畫面：網址有 ?w= / ?h= 就照網址；否則一律要橫式（1280×720），由瀏覽器依手機方向轉成直式。
+// 0.2.0 在直式時對調成 720×1280 去要，Android Chrome 反而給了橫式畫面（見 layout.js 檔頭）。
 function camRequestSize() {
-  const { w, h } = camSize();
-  const portrait = !params.has('w') && !params.has('h') && innerHeight > innerWidth;
-  return portrait ? { w: h, h: w } : { w, h };
+  return params.has('w') || params.has('h') ? camSize() : camRequest(camSize());
 }
 
-// #frame 依影像比例縮放到「整個放得進視窗」的最大尺寸（不裁切），標籤以 #frame 的百分比定位
+// #frame 的大小：直式視窗 cover（填滿整個畫面、裁掉多的），橫式視窗 contain（整張放得進、不裁切）。
+// 標籤以 #frame 的百分比定位，所以兩種模式都對得上臉。模擬鏡頭在轉向後也跟著換成直式／橫式畫布。
 function fitFrame() {
+  document.body.classList.toggle('portrait', isPortrait(innerWidth, innerHeight));
   if (!src || !src.width || !src.height) return;
-  const k = Math.min(innerWidth / src.width, innerHeight / src.height);
-  frameEl.style.width = `${Math.round(src.width * k)}px`;
-  frameEl.style.height = `${Math.round(src.height * k)}px`;
+  if (src.kind === 'sim') resizeSim();
+  const f = frameFit(src.width, src.height, innerWidth, innerHeight);
+  frameEl.style.width = `${f.width}px`;
+  frameEl.style.height = `${f.height}px`;
+  thumbAt = 0;
 }
 window.addEventListener('resize', fitFrame);
+fitFrame();
 
 async function ensurePipeline() {
   if (landmarker) return;
@@ -761,15 +771,17 @@ async function startSim(file) {
     sim.url = url;
     sim.frame = 0;
     sim.lastAt = 0;
-    const { w, h } = camSize();
-    simCanvas.width = w;
-    simCanvas.height = h;
+    resizeSim();
     await ensurePipeline();
     switchSource({
       kind: 'sim',
       el: simCanvas,
-      width: w,
-      height: h,
+      get width() {
+        return simCanvas.width;
+      },
+      get height() {
+        return simCanvas.height;
+      },
       frameId: simFrame,
     });
   } catch (err) {
@@ -778,6 +790,18 @@ async function startSim(file) {
   } finally {
     btn.disabled = false;
   }
+}
+
+// 模擬鏡頭的畫布：直式視窗用直式（720×1280），橫式用橫式（1280×720），模擬手機鏡頭轉向後的輸出。
+// 尺寸改變時清掉軌跡（landmark 座標的比例變了），並讓下一次 simFrame 重畫。
+function resizeSim() {
+  const { w, h } = simSize(camSize(), innerWidth, innerHeight);
+  if (simCanvas.width === w && simCanvas.height === h) return;
+  simCanvas.width = w;
+  simCanvas.height = h;
+  sim.lastAt = 0;
+  tracker.tracks.length = 0;
+  warpBuilder.prev?.clear?.();
 }
 
 // 依鏡頭解析度等比縮放、置中（不足處補黑邊，不裁切）。抖動開啟時加微小的位移與縮放，
@@ -955,8 +979,20 @@ function canShareFiles(file) {
   }
 }
 
+// 照片只取預覽看得到的範圍：直式視窗是 cover，照片跟預覽一樣是直式；橫式（contain）時就是整張畫布。
+// 要在 renderer.draw 的同一個 task 裡呼叫（WebGL 緩衝區被清掉前），所以先同步複製到 2D canvas。
+function shotCanvas() {
+  const r = visibleRect(canvas.width, canvas.height, innerWidth, innerHeight);
+  if (r.w === canvas.width && r.h === canvas.height) return canvas;
+  const out = document.createElement('canvas');
+  out.width = r.w;
+  out.height = r.h;
+  out.getContext('2d').drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  return out;
+}
+
 function savePng() {
-  canvas.toBlob((blob) => {
+  shotCanvas().toBlob((blob) => {
     if (!blob) return;
     const name = shotName();
     const touch = matchMedia('(pointer: coarse)').matches;

@@ -1,6 +1,6 @@
 {
   "name": "xixi-beauty-cam",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "In-browser beauty camera with whole-frame color filters and per-face beauty you can switch off person by person.",
   "license": "Apache-2.0",
@@ -17,7 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node tests/presets.test.mjs && node tests/preset-format.test.mjs && node tests/pwa.test.mjs && node scripts/validate-presets.mjs",
+    "test": "node tests/presets.test.mjs && node tests/preset-format.test.mjs && node tests/pwa.test.mjs && node tests/layout.test.mjs && node scripts/validate-presets.mjs",
     "validate:presets": "node scripts/validate-presets.mjs",
     "lint": "eslint . && prettier --check .",
     "lint:commits": "commitlint --from HEAD~1 --to HEAD --verbose",

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-12
+
+### Fixed
+
+- Phones held upright: the preview is now portrait and fills the whole screen (cover) instead of a 16:9 strip in the middle; filter thumbnails are 3:4 portrait and photos are cropped to what the preview shows, so they are portrait too. Landscape phones and desktops keep the 0.2.0 layout (whole frame, no crop).
+- The camera is always asked for a landscape size (1280×720) and the browser rotates it; 0.2.0 swapped it to 720×1280 in portrait, which made Android Chrome return a landscape frame.
+- "Use a photo as the camera" switches to a portrait 720×1280 canvas in portrait windows.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added
@@ -40,6 +48,7 @@ First public release.
 - "Use a photo as the camera" test input, mask view, difference ×20 view (against the filter-only frame) and an fps / timing panel.
 - Node test suites for presets and both preset formats, a browser warp test, ESLint and Prettier, commitlint for Conventional Commits, and GitHub Actions CI.
 
-[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hohshen/xixi-beauty-cam/releases/tag/v0.1.0

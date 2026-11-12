@@ -6,7 +6,7 @@
 //   瀏覽器發現 sw.js 變了就會下載新版、刪掉舊快取，下次開啟就是新版。
 
 // 格式：xixi-beauty-cam-<package.json 版本>-<序號>；同一版內改了 app/ 的檔案就把序號加 1，發新版時序號回到 1
-const CACHE_VERSION = 'xixi-beauty-cam-0.2.0-1';
+const CACHE_VERSION = 'xixi-beauty-cam-0.2.1-1';
 
 // 相對於 sw.js 所在的資料夾。tests/pwa.test.mjs 會比對這份清單與 app/ 裡實際的檔案。
 const PRECACHE = [
@@ -15,6 +15,7 @@ const PRECACHE = [
   'style.css',
   'manifest.webmanifest',
   'app.js',
+  'layout.js',
   'look.js',
   'mask.js',
   'presets.js',

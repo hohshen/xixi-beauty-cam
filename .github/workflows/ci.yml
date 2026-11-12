@@ -38,6 +38,7 @@ jobs:
           node tests/presets.test.mjs
           node tests/preset-format.test.mjs
           node tests/pwa.test.mjs
+          node tests/layout.test.mjs
 
       - name: Validate filter and beauty preset files against the schemas
         run: npm run validate:presets
