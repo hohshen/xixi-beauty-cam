@@ -57,7 +57,7 @@ If you serve the app under a sub-path (for example `example.com/cam/`), everythi
 ## Releasing an update
 
 1. Change files in `app/`.
-2. Bump `CACHE_VERSION` in `app/sw.js` (`xixi-beauty-cam-<package version>-<n>`; `npm test` checks the format and that the cache list matches `app/`).
+2. Bump `CACHE_VERSION` in `app/sw.js` (`xixi-beauty-cam-<package version>-<n>`) and `APP_VERSION` in `app/version.js` (the version shown on screen); `npm test` checks both against `package.json` and that the cache list matches `app/`.
 3. Run `npm test` (it checks the cache version format and the cache list), then deploy `app/` the same way as before. Browsers fetch the new `sw.js` on the next visit, download the new version in the background and show 「新版本已下載，重新整理後使用」; the next load uses it.
 
 ## Other static hosts

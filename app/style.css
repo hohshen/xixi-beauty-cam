@@ -681,3 +681,33 @@ body.dragging #dropHint {
     top: calc(60px + var(--safe-t));
   }
 }
+
+/* ---------- 0.3.1：一鍵回原圖、版本號、有新版 ---------- */
+button.icon.round.text {
+  font-size: 13px;
+  font-weight: 600;
+}
+#versionBar {
+  position: absolute;
+  left: 50%;
+  top: calc(10px + var(--safe-t));
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+#version {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted);
+  opacity: 0.8;
+}
+#updateBtn {
+  pointer-events: auto;
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+}

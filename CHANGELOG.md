@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-13
+
+### Added
+
+- "原圖" button next to the shutter: one tap sets both the filter and the beauty tab back to none (original picture) and clears the checked style. It sits in the shutter row, so it is reachable from all three tabs, upright and sideways. Per-face beauty on/off is unchanged.
+- The version (for example `v0.3.1`) is shown small at the top center of the screen. It comes from `app/version.js`, which `tests/ui.test.mjs` checks against `package.json` and the service worker's `CACHE_VERSION`.
+- When a new version has been downloaded in the background and takes over the page, a "有新版，點此更新" button appears at the top; tapping it reloads into the new version. Nothing reloads by itself, and the first install (no previous version) shows the usual "offline files saved" message instead.
+- `tests/ui.test.mjs`: default tab, reset to original, version consistency and the update logic.
+
+### Changed
+
+- The app opens on the "風格" (style) tab the first time. After that it reopens on the last tab used. The filter and beauty applied by default are unchanged (原圖 / 自然).
+
 ## [0.3.0] - 2026-11-13
 
 ### Added

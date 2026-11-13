@@ -89,6 +89,27 @@ export function applyStyle(style, pair) {
   return { missing };
 }
 
+/**
+ * 一鍵回原圖：兩個分頁都選「不作用」的預設（id none：濾鏡「原圖」、美顏「無美顏」），強度 100%、微調清掉。
+ * 清單裡沒有 none（不該發生）就找第一個全 0 的；連那個也沒有就把強度設 0，效果一樣是原圖。
+ * 只動兩個分頁的選擇，不碰逐人的「美顏 開／關」。
+ */
+export const ORIGINAL_ID = 'none';
+export function resetToOriginal(pair) {
+  for (const look of Object.values(pair)) {
+    const p = look.presets.find((x) => x.id === ORIGINAL_ID) ?? look.presets.find((x) => look.kind.keys.every((k) => x.params[k] === 0));
+    if (p) look.select(p.id);
+    else look.setStrength(0);
+  }
+}
+
+// 底部分頁：沒記過（第一次開）就開「風格」；記過就回到上次的分頁。
+export const TAB_KINDS = ['style', 'filter', 'beauty'];
+export const DEFAULT_TAB = 'style';
+export function initialTab(saved) {
+  return TAB_KINDS.includes(saved) ? saved : DEFAULT_TAB;
+}
+
 /** 目前兩個分頁選的預設剛好是這個風格引用的（之後在分頁裡微調也還算）。 */
 export function styleActive(style, pair) {
   return Object.entries(pair).every(([field, look]) => look.preset?.id === style[field]);

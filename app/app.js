@@ -31,7 +31,8 @@ import {
   resolveStyle,
   missingRefsText,
 } from './presets.js';
-import { Look, loadSelectedId, saveSelectedId, applyStyle, styleActive } from './look.js';
+import { Look, loadSelectedId, saveSelectedId, applyStyle, styleActive, resetToOriginal, initialTab } from './look.js';
+import { APP_VERSION, versionLabel, watchServiceWorker } from './version.js';
 import { AutoQuality, QUALITY_LEVELS } from './quality.js';
 import { camRequest, centerCrop, frameFit, isPortrait, simSize, visibleRect } from './layout.js';
 
@@ -428,6 +429,17 @@ function pickStyle(id) {
   flash(`風格「${s.name}」${missingRefsText(missing)}，${rest}；把缺的檔案匯入後再點一次`, 10000);
 }
 
+/** 一鍵回原圖：濾鏡與美顏都回到 none，風格的選中狀態一併清掉（逐人的美顏開關不動）。 */
+function resetOriginal() {
+  resetToOriginal(lookPair());
+  tabs.style.selectedId = null;
+  for (const t of TAB_LIST) {
+    saveSelectedId(t.kind, safeStorage(), t.look.preset.id);
+    syncLook(t);
+  }
+  flash('已回到原圖（沒有濾鏡、沒有美顏）', 2500);
+}
+
 function buildStyleControls(tab) {
   renderBar(tab);
   tab.q('preset-bar').addEventListener('click', (e) => {
@@ -656,10 +668,11 @@ syncStyle();
   try {
     saved = safeStorage()?.getItem(TAB_KEY);
   } catch {
-    /* 讀不到就用濾鏡分頁 */
+    /* 讀不到就當第一次開 */
   }
-  setTab(saved === 'beauty' || saved === 'style' ? saved : 'filter');
+  setTab(initialTab(saved)); // 第一次開是「風格」，之後回到上次的分頁
 }
+$('resetBtn').addEventListener('click', resetOriginal);
 $('tabs').addEventListener('click', (e) => {
   const t = e.target.closest('[role="tab"]');
   if (t) setTab(t.dataset.kind);
@@ -1219,10 +1232,17 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- 離線（PWA） ----------
 // sw.js 在第一次載入時把頁面、MediaPipe 與模型全部存進快取；之後斷網重新整理也能開啟並偵測人臉。
+// sw.js 一律先讀快取，所以新版是在背景下載：新版接手（controllerchange）時顯示「有新版，點此更新」，
+// 使用者點了才重新載入（不打斷正在用的鏡頭；也不會自己一直重新載入）。第一次安裝不算新版。
+$('version').textContent = versionLabel();
+$('version').title = `xixi-beauty-cam ${APP_VERSION}`;
+$('updateBtn').addEventListener('click', () => location.reload());
 if ('serviceWorker' in navigator && !params.has('nosw')) {
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    flash(hadController ? '新版本已下載，重新整理後使用' : '離線檔案已存好，之後沒有網路也能開啟', 6000);
+  watchServiceWorker(navigator.serviceWorker, {
+    onFirstInstall: () => flash('離線檔案已存好，之後沒有網路也能開啟', 6000),
+    onUpdate: () => {
+      $('updateBtn').hidden = false;
+    },
   });
   navigator.serviceWorker.register(new URL('./sw.js', import.meta.url), { scope: './' }).catch((err) => {
     console.warn('service worker 註冊失敗，離線功能不可用', err);
@@ -1246,6 +1266,11 @@ window.beautyCam = {
   setTab,
   selectPreset: (kind, id) => selectPreset(tabs[kind], id),
   applyStyle: pickStyle,
+  resetOriginal,
+  version: APP_VERSION,
+  get activeTab() {
+    return activeKind;
+  },
   importFiles,
   get effect() {
     return effect;

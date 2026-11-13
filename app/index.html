@@ -45,6 +45,11 @@
       <div id="dropHint">放開以匯入濾鏡（.xixi-filter.json）、美顏預設（.xixi-beauty.json）或風格（.xixi-style.json）</div>
 
       <div id="simBadge">模擬鏡頭</div>
+      <!-- 上方置中：版本號（不擋操作）；新版 service worker 接手後出現「有新版，點此更新」 -->
+      <div id="versionBar">
+        <span id="version"></span>
+        <button id="updateBtn" class="chip" type="button" hidden>有新版，點此更新</button>
+      </div>
       <div id="status" role="status"></div>
 
       <!-- 角落小選單：fps、檢視模式、臉框、來源切換，不佔主畫面 -->
@@ -79,15 +84,15 @@
            風格 = 一個濾鏡＋一個美顏，點一下同時切換兩個分頁（之後仍可在兩個分頁各自微調）。 -->
       <div id="dock">
         <div id="tabs" role="tablist" aria-label="效果">
-          <button id="tab-style" role="tab" type="button" data-kind="style" aria-controls="panel-style" aria-selected="false">風格</button>
-          <button id="tab-filter" role="tab" type="button" data-kind="filter" aria-controls="panel-filter" aria-selected="true">
+          <button id="tab-style" role="tab" type="button" data-kind="style" aria-controls="panel-style" aria-selected="true">風格</button>
+          <button id="tab-filter" role="tab" type="button" data-kind="filter" aria-controls="panel-filter" aria-selected="false">
             濾鏡
           </button>
           <button id="tab-beauty" role="tab" type="button" data-kind="beauty" aria-controls="panel-beauty" aria-selected="false">
             美顏
           </button>
         </div>
-        <section id="panel-style" class="panel" role="tabpanel" aria-labelledby="tab-style" data-kind="style" hidden>
+        <section id="panel-style" class="panel" role="tabpanel" aria-labelledby="tab-style" data-kind="style">
           <!-- 風格沒有自己的強度：點一下就把濾鏡與美顏分頁切到它引用的預設，強度與微調到那兩個分頁調 -->
           <div class="strength-row">
             <span class="style-now" aria-live="polite"></span>
@@ -102,7 +107,7 @@
           </div>
           <div id="styleBar" class="preset-bar" role="radiogroup" aria-label="風格"></div>
         </section>
-        <section id="panel-filter" class="panel" role="tabpanel" aria-labelledby="tab-filter" data-kind="filter">
+        <section id="panel-filter" class="panel" role="tabpanel" aria-labelledby="tab-filter" data-kind="filter" hidden>
           <div class="strength-row">
             <label for="filterStrength" class="strength-name"></label>
             <input id="filterStrength" class="strength" type="range" min="0" max="100" value="100" aria-label="濾鏡強度" />
@@ -178,9 +183,13 @@
           </div>
           <div id="beautyBar" class="preset-bar" role="radiogroup" aria-label="美顏"></div>
         </section>
-        <!-- 快門置中；左邊留同寬的空位，右邊是前後鏡頭切換（只有兩個以上鏡頭時顯示） -->
+        <!-- 快門置中；左邊是「原圖」（一鍵把濾鏡與美顏都關掉，三個分頁都看得到），右邊是前後鏡頭切換（只有兩個以上鏡頭時顯示） -->
         <div id="shutterRow">
-          <span class="side"></span>
+          <span class="side"
+            ><button id="resetBtn" class="icon round text" type="button" aria-label="回到原圖" title="回到原圖：濾鏡與美顏都關掉">
+              原圖
+            </button></span
+          >
           <button id="shot" class="shutter" disabled aria-label="拍照" title="拍照"></button>
           <span class="side"><button id="flip" class="icon round" type="button" hidden aria-label="切換到後鏡頭">⟲</button></span>
         </div>
