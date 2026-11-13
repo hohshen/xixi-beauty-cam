@@ -2,13 +2,18 @@
 // 濾鏡檔（*.xixi-filter.json）與美顏預設檔（*.xixi-beauty.json）的格式測試（不需要瀏覽器）：node tests/preset-format.test.mjs
 // 兩種格式各跑五種情況：合法、缺欄位、超出範圍、多餘欄位、惡意文字；
 // 另外檢查匯入時依 format 自動分類、schema.json 與驗證程式一致、自訂預設的存取、程式碼只把檔案當資料。
+// 風格檔（*.xixi-style.json）另有一節：合法、缺欄位、引用格式不對、多餘欄位、惡意文字、匯出再匯入。
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   FILTER,
   BEAUTY,
+  STYLE,
   KINDS,
+  ALL_KINDS,
   validatePreset,
+  resolveStyle,
+  missingRefsText,
   parsePresetText,
   toPresetFile,
   presetFileText,
@@ -112,14 +117,15 @@ for (const kind of KINDS) {
     `${kind.keys.length} 個參數都讀對`,
   );
   const builtin = await loadBuiltinPresets(kind, (name) => read(`../app/${kind.dir}/${name}`));
-  ok(
-    builtin.errors.length === 0 && builtin.presets.length === 6,
-    `內建 6 個${L}檔全部通過（${builtin.presets.map((p) => p.name).join('、')}）`,
-  );
   const index = JSON.parse(read(`../app/${kind.dir}/index.json`));
+  const n = index.presets.length;
+  ok(
+    builtin.errors.length === 0 && builtin.presets.length === n && n === 10,
+    `內建 ${n} 個${L}檔全部通過（${builtin.presets.map((p) => p.name).join('、')}）`,
+  );
   ok(
     index.presets.every((f) => schemaCheck(schema, JSON.parse(read(`../app/${kind.dir}/${f}`))).length === 0),
-    `內建 6 個${L}檔都符合 schema.json`,
+    `內建 ${n} 個${L}檔都符合 schema.json`,
   );
   ok(
     index.presets.every((f) => f === `${JSON.parse(read(`../app/${kind.dir}/${f}`)).id}${kind.ext}`),
@@ -268,7 +274,111 @@ r = parsePresetText(JSON.stringify(bEx), FILTER);
 ok(!r.ok && fields(r).includes('format') && /美顏檔/.test(r.errors[0].message), '指定要濾鏡卻給美顏檔 → 擋下，說明這是美顏檔');
 r = parsePresetText(JSON.stringify({ ...fEx, format: 'beauty-cam-filter' }));
 ok(!r.ok && fields(r).includes('format'), '舊的 0.1.0 開發版格式 "beauty-cam-filter" → 擋下，指出 format');
-ok(FILTER.ext !== BEAUTY.ext && FILTER.format !== BEAUTY.format, `兩種檔案的副檔名與 format 都不同（${FILTER.ext}、${BEAUTY.ext}）`);
+ok(
+  new Set(ALL_KINDS.map((k) => k.ext)).size === 3 && new Set(ALL_KINDS.map((k) => k.format)).size === 3,
+  `三種檔案的副檔名與 format 都不同（${ALL_KINDS.map((k) => k.ext).join('、')}）`,
+);
+
+// ---- 6b. 風格檔 ----
+section('風格檔（*.xixi-style.json）');
+{
+  const schema = JSON.parse(read('../app/styles/schema.json'));
+  const VALID = clone(schema.examples[0]);
+  ok(
+    schema.$schema?.includes('2020-12') && schema.properties.format.const === 'xixi-style' && STYLE.format === 'xixi-style',
+    'styles/schema.json 存在，format 固定為 "xixi-style"',
+  );
+  ok(
+    JSON.stringify(schema.required) === '["format","version","id","name","filter","beauty"]' && !('params' in schema.properties),
+    'schema 必填 filter 與 beauty 兩個 id，沒有 params',
+  );
+  for (const k of schema.required) {
+    const d = clone(VALID);
+    delete d[k];
+    ok(!validatePreset(STYLE, d).ok && fields(validatePreset(STYLE, d)).includes(k), `缺 ${k} → 擋下，指出欄位 ${k}`);
+  }
+  let r = parsePresetText(JSON.stringify(VALID));
+  ok(
+    r.ok && r.kind === STYLE && r.warnings.length === 0 && schemaCheck(schema, VALID).length === 0,
+    '"xixi-style" → 風格分頁；範例檔通過 schema 與驗證程式',
+  );
+  ok(
+    r.ok &&
+      r.preset.filter === 'soft-film' &&
+      r.preset.beauty === 'soft-glow' &&
+      r.preset.desc === VALID.description &&
+      !('params' in r.preset),
+    '讀出 filter、beauty 兩個 id 與副標，沒有 params',
+  );
+  const back = parsePresetText(presetFileText(STYLE, r.preset));
+  ok(
+    back.ok && back.kind === STYLE && JSON.stringify(toPresetFile(STYLE, back.preset)) === JSON.stringify(toPresetFile(STYLE, r.preset)),
+    '匯出再匯入，內容與分類都不變（來回一致）',
+  );
+  ok(presetFileName(STYLE, r.preset) === 'soft-film-glow.xixi-style.json', '匯出的檔名是 <id>.xixi-style.json');
+  ok(
+    JSON.stringify(Object.keys(toPresetFile(STYLE, r.preset))) ===
+      '["format","version","id","name","author","description","license","filter","beauty"]',
+    '匯出的欄位固定：format、version、id、name、author、description、license、filter、beauty',
+  );
+  for (const bad of ['Bad ID', '../x', 'https://evil.example/a', '', 5, null]) {
+    r = validatePreset(STYLE, { ...clone(VALID), filter: bad });
+    ok(!r.ok && fields(r).includes('filter'), `filter 是 ${JSON.stringify(bad)} → 擋下（只收 id，不收網址或路徑）`);
+  }
+  r = parsePresetText(JSON.stringify({ ...VALID, version: 2, params: { exposure: 100 }, script: 'https://evil.example/x.js' }));
+  ok(
+    r.ok &&
+      JSON.stringify(Object.keys(r.preset).sort()) === '["author","beauty","desc","filter","id","license","name"]' &&
+      r.warnings.some((x) => x.field === 'version'),
+    '風格檔裡放 params 或網址欄位 → 忽略（風格不能自帶參數）；version 2 給警告',
+  );
+  r = parsePresetText(JSON.stringify({ ...VALID, name: '‮<b>x</b>\u0007' }));
+  ok(r.ok && r.preset.name === '<b>x</b>', '名稱的控制字元與雙向覆寫字元被去掉，HTML 原樣當純文字');
+  r = parsePresetText(JSON.stringify(VALID), FILTER);
+  ok(!r.ok && /風格檔/.test(r.errors[0].message), '指定要濾鏡卻給風格檔 → 擋下，說明這是風格檔');
+  r = parsePresetText(JSON.stringify({ ...VALID, format: 'xixi-look' }));
+  ok(
+    !r.ok && fields(r).includes('format') && /xixi-style/.test(r.errors[0].message),
+    '"xixi-look" 不是格式名 → 擋下，訊息列出 "xixi-style"',
+  );
+
+  // 引用不在清單：說清楚缺哪個
+  const lists = { filter: [{ id: 'soft-film', name: '淡淡底片' }], beauty: [] };
+  const res = resolveStyle(VALID, lists);
+  ok(res.filter?.id === 'soft-film' && res.beauty === null && res.missing.length === 1, '引用的美顏不在清單 → 找得到濾鏡、缺美顏');
+  ok(missingRefsText(res.missing) === '缺美顏「soft-glow」（soft-glow.xixi-beauty.json）', `缺的說明：${missingRefsText(res.missing)}`);
+
+  // 內建清單只收同資料夾的 <id>.xixi-style.json
+  const asked = [];
+  const fake = {
+    'index.json': JSON.stringify({
+      format: 'xixi-style-index',
+      version: 1,
+      presets: ['https://evil.example/a.xixi-style.json', 'x.xixi-filter.json', 'ok.xixi-style.json'],
+    }),
+    'ok.xixi-style.json': JSON.stringify({ ...VALID, id: 'ok' }),
+  };
+  const loaded = await loadBuiltinPresets(STYLE, async (n) => {
+    asked.push(n);
+    return fake[n];
+  });
+  ok(
+    JSON.stringify(asked) === '["index.json","ok.xixi-style.json"]' && loaded.presets.length === 1 && loaded.errors.length === 2,
+    '風格清單裡的網址與別種副檔名不會去讀，只讀 index.json 與 ok.xixi-style.json',
+  );
+
+  // 自訂風格存在自己的 localStorage 鍵
+  const mem = new Map();
+  const st = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)) };
+  const mine = { ...validatePreset(STYLE, VALID).preset, custom: true };
+  ok(
+    saveCustomPresets(STYLE, st, [mine]) &&
+      loadCustomPresets(STYLE, st)[0]?.filter === 'soft-film' &&
+      loadCustomPresets(FILTER, st).length === 0,
+    '自訂風格存在自己的 localStorage 鍵，不和濾鏡、美顏混在一起',
+  );
+  ok(new Set(ALL_KINDS.map((k) => k.storageKey)).size === 3, '三種自訂各一個鍵');
+}
 
 // ---- 7. 程式碼靜態檢查：預設檔只當資料 ----
 section('程式碼只把檔案當資料');

@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
-// Validate filter files (*.xixi-filter.json) and beauty preset files (*.xixi-beauty.json)
-// against their schema.json and the app's own validator.
+// Validate filter files (*.xixi-filter.json), beauty preset files (*.xixi-beauty.json) and
+// style files (*.xixi-style.json) against their schema.json and the app's own validator.
 //
-//   node scripts/validate-presets.mjs                       # all built-ins (app/filters/ and app/beauty/)
+//   node scripts/validate-presets.mjs                       # all built-ins (app/filters/, app/beauty/, app/styles/)
 //   node scripts/validate-presets.mjs a.xixi-filter.json    # specific files, e.g. one you want to contribute
 //
-// The kind of each file is taken from its "format" field ("xixi-filter" or "xixi-beauty").
+// The kind of each file is taken from its "format" field ("xixi-filter", "xixi-beauty" or "xixi-style").
+// Built-in styles must point at a built-in filter and a built-in beauty preset; for a single style file
+// the references are not checked (they may point at files the user imports alongside).
 // Exits 1 if any file fails. Uses no dependencies: the schema keywords used by
 // schema.json (type, const, required, properties, pattern, minLength, maxLength, minimum)
 // are checked by the small validator below.
 import { readFileSync } from 'node:fs';
 import { basename, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOfFormat, validatePreset } from '../app/presets.js';
+import { ALL_KINDS as KINDS, kindOfFormat, validatePreset } from '../app/presets.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const dirOf = (kind) => resolve(root, 'app', kind.dir);
@@ -80,6 +82,7 @@ const args = process.argv.slice(2);
 if (args.length > 0) {
   for (const f of args) checkFile(resolve(f));
 } else {
+  const builtinIds = new Map(); // kind -> Set(id)，給風格檢查引用用（KINDS 的順序是濾鏡、美顏、風格）
   for (const kind of KINDS) {
     const dir = dirOf(kind);
     const index = JSON.parse(readFileSync(resolve(dir, 'index.json'), 'utf8'));
@@ -93,9 +96,17 @@ if (args.length > 0) {
       }
       const data = checkFile(resolve(dir, name), { builtin: kind });
       if (data) ids.push(data.id);
+      if (data && kind.refs) {
+        for (const [field, ref] of Object.entries(kind.refs)) {
+          if (!builtinIds.get(ref)?.has(data[field])) idxErrs.push(`${name}: ${field} "${data[field]}" is not a built-in ${ref.format}`);
+        }
+      }
     }
+    builtinIds.set(kind, new Set(ids));
     if (new Set(ids).size !== ids.length) idxErrs.push('duplicate preset id');
-    if (!ids.includes(index.default)) idxErrs.push(`default "${index.default}" is not in the list`);
+    // 濾鏡與美顏必須有 default；風格沒有預設選擇，有寫 default 才檢查
+    if ((kind.defaultId !== null || 'default' in index) && !ids.includes(index.default))
+      idxErrs.push(`default "${index.default}" is not in the list`);
     report(resolve(dir, 'index.json'), idxErrs);
   }
 }

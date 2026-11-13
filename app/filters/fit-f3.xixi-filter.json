@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "fit-f3",
+  "name": "冷綠清透",
+  "author": "xixi-beauty-cam",
+  "description": "偏冷偏綠、低對比、微褪色",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 6,
+    "contrast": -34,
+    "saturation": 34,
+    "temperature": -22,
+    "tint": -19,
+    "fade": 19,
+    "vignette": 0,
+    "grain": 0
+  }
+}

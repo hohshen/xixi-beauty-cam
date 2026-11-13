@@ -3,10 +3,11 @@
 // 檢查：兩組內建預設合法、預設值、強度與進階微調算出的參數、
 // 濾鏡參數傳到整張畫面的調色 uniform、美顏參數只傳到美顏遮罩與變形、美顏關的人不進美顏遮罩與變形、
 // localStorage 失敗時的退路，以及 index.html／app.js 的靜態結構（兩個分頁、各自的預設列與強度條）。
+// 「風格」：四個內建風格、點一下同時切換濾鏡與美顏、指到不存在的 id 時不壞掉、之後仍可各自微調。
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { FILTER, BEAUTY, loadBuiltinPresets } from '../app/presets.js';
-import { Look, findPreset, loadSelectedId, saveSelectedId } from '../app/look.js';
+import { FILTER, BEAUTY, STYLE, loadBuiltinPresets, resolveStyle } from '../app/presets.js';
+import { Look, findPreset, loadSelectedId, saveSelectedId, applyStyle, styleActive } from '../app/look.js';
 import { WarpBuilder, SLIM_N } from '../app/warp.js';
 import { Renderer, FRAG, gradeUniforms } from '../app/renderer.js';
 import { drawFaceMask } from '../app/mask.js';
@@ -29,6 +30,7 @@ const read = (p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'ut
 // 內建預設和 app 一樣依 <dir>/index.json 從檔案載入
 const filters = await loadBuiltinPresets(FILTER, (name) => read(`../app/filters/${name}`));
 const beauty = await loadBuiltinPresets(BEAUTY, (name) => read(`../app/beauty/${name}`));
+const styles = await loadBuiltinPresets(STYLE, (name) => read(`../app/styles/${name}`));
 const F = filters.presets;
 const B = beauty.presets;
 const fp = (id) => findPreset(id, F, filters.defaultId);
@@ -36,7 +38,7 @@ const bp = (id) => findPreset(id, B, beauty.defaultId);
 
 // ---- 1. 兩組內建預設 ----
 section('內建濾鏡（整張畫面的調色）');
-ok(filters.errors.length === 0 && F.length === 6, `filters/index.json 與 6 個濾鏡檔都載入成功（錯誤 ${filters.errors.length} 個）`);
+ok(filters.errors.length === 0 && F.length === 10, `filters/index.json 與 10 個濾鏡檔都載入成功（錯誤 ${filters.errors.length} 個）`);
 ok(filters.defaultId === 'none' && fp('none').name === '原圖', '預設濾鏡是「原圖」（不調色）');
 ok(
   FILTER.keys.every((k) => fp('none').params[k] === 0),
@@ -50,6 +52,11 @@ const TABLE = {
   冷白: [8, 0, -10, -20, 0, 5, 0, 0],
   膠片: [0, -10, -15, 10, 5, 25, 20, 15],
   黑白: [0, 15, -100, 0, 0, 5, 15, 10],
+  // 2026-11-13 從參考圖反推（projects/beauty-cam/asset/filter-fit/README.md），排在原有的後面
+  柔霧粉: [7, -32, 23, -13, 11, 18, 0, 0],
+  鮮彩冷調: [8, -36, 66, -24, -1, 25, 0, 0],
+  冷綠清透: [6, -34, 34, -22, -19, 19, 0, 0],
+  冷白顆粒: [9, -17, 21, -22, 8, 11, 0, 20],
 };
 for (const [name, vals] of Object.entries(TABLE)) {
   const p = F.find((x) => x.name === name);
@@ -66,14 +73,21 @@ ok(
 );
 
 section('內建美顏預設（只在臉上，不調色）');
-ok(beauty.errors.length === 0 && B.length === 6, `beauty/index.json 與 6 個美顏檔都載入成功（錯誤 ${beauty.errors.length} 個）`);
+ok(beauty.errors.length === 0 && B.length === 10, `beauty/index.json 與 10 個美顏檔都載入成功（錯誤 ${beauty.errors.length} 個）`);
 ok(beauty.defaultId === 'natural' && bp(beauty.defaultId).name === '自然', '預設美顏是「自然」');
-for (const n of ['無美顏', '自然', '清透', '亮白', '精緻', '網紅'])
+for (const n of ['無美顏', '自然', '清透', '亮白', '精緻', '網紅', '柔膚', '輕修', '精修', '小臉'])
   ok(
     B.some((p) => p.name === n),
     `有「${n}」`,
   );
 ok(!B.some((p) => p.name === '原圖'), '美顏列不再叫「原圖」（「原圖」只用在濾鏡）');
+ok(new Set(B.map((p) => p.name)).size === B.length && new Set(F.map((p) => p.name)).size === F.length, '同一列裡沒有重名的預設');
+ok(!B.some((p) => p.id.startsWith('fit-') && /大眼/.test(p.name)), '反推的美顏不掛「大眼」名稱（f1 的大眼證據弱）');
+ok(
+  JSON.stringify(F.slice(-4).map((p) => p.id)) === '["fit-f1","fit-f2","fit-f3","fit-f4"]' &&
+    JSON.stringify(B.slice(-4).map((p) => p.id)) === '["fit-f1","fit-f2","fit-f3","fit-f4"]',
+  '反推的四組排在原有預設之後',
+);
 ok(
   BEAUTY.keys.every((k) => bp('none').params[k] === 0),
   '「無美顏」四個值都是 0',
@@ -86,7 +100,33 @@ ok(
   JSON.stringify(BEAUTY.keys) === '["smooth","whiten","slim","eye"]' && BEAUTY.keys.every((k) => !FILTER.keys.includes(k)),
   '美顏只有磨皮、美白、瘦臉、大眼，與濾鏡的參數沒有重疊（美顏不調色）',
 );
-ok(fp('不存在').id === 'none' && bp('不存在').id === 'natural', '未知 id 退回各自的預設');
+ok(fp('不存在').id === 'none' && bp('不存在').id === 'natural', '未知 id 退回各自的預設（default 沒改）');
+
+section('內建風格（一個濾鏡＋一個美顏）');
+const S = styles.presets;
+const sp = (id) => S.find((x) => x.id === id);
+ok(styles.errors.length === 0 && S.length === 4, `styles/index.json 與 4 個風格檔都載入成功（錯誤 ${styles.errors.length} 個）`);
+const STYLE_TABLE = [
+  ['soft-pink', '柔霧粉', 'fit-f1', '柔膚'],
+  ['vivid-cool', '鮮彩冷調', 'fit-f2', '輕修'],
+  ['cool-green', '冷綠清透', 'fit-f3', '精修'],
+  ['cool-grain', '冷白顆粒', 'fit-f4', '小臉'],
+];
+for (const [id, name, ref, sub] of STYLE_TABLE) {
+  const s = sp(id);
+  const r = s && resolveStyle(s, { filter: F, beauty: B });
+  ok(
+    s &&
+      s.name === name &&
+      s.filter === ref &&
+      s.beauty === ref &&
+      r.missing.length === 0 &&
+      r.filter.name === name &&
+      s.desc === `美顏：${sub}`,
+    `風格「${name}」= 濾鏡「${r?.filter?.name}」＋美顏「${r?.beauty?.name}」（名稱用濾鏡名，副標「${s?.desc}」）`,
+  );
+}
+ok(JSON.stringify(S.map((s) => s.id)) === JSON.stringify(STYLE_TABLE.map((x) => x[0])), '風格列的順序：f1 → f4');
 
 // ---- 2. 參數計算 ----
 section('強度與進階微調');
@@ -138,6 +178,58 @@ ok(
     JSON.stringify({ exposure: 2, contrast: 3, saturation: 3, temperature: 13, tint: 3, fade: 3, vignette: 5, grain: 0 }),
   '另存時存的是「值 × 強度」取整數',
 );
+
+// ---- 2b. 風格：一鍵切換 ----
+section('風格：點一下同時切換濾鏡與美顏');
+{
+  const pair = { filter: new Look(FILTER, F, filters.defaultId), beauty: new Look(BEAUTY, B, beauty.defaultId) };
+  ok(!S.some((s) => styleActive(s, pair)), '一開始（原圖＋自然）沒有任何風格打勾');
+  let res = applyStyle(sp('vivid-cool'), pair);
+  ok(
+    res.missing.length === 0 && pair.filter.preset.id === 'fit-f2' && pair.beauty.preset.id === 'fit-f2',
+    '點「鮮彩冷調」→ 濾鏡與美顏同時切到 fit-f2',
+  );
+  ok(styleActive(sp('vivid-cool'), pair) && !styleActive(sp('soft-pink'), pair), '只有「鮮彩冷調」打勾');
+  ok(near(pair.filter.params().saturation, 0.66) && near(pair.beauty.params().smooth, 0.59), '每幀參數跟著換（飽和 0.66、磨皮 0.59）');
+  pair.filter.setStrength(60).tune('grain', 30);
+  pair.beauty.tune('slim', 40);
+  ok(
+    pair.filter.tuned &&
+      pair.beauty.tuned &&
+      pair.filter.base.grain === 30 &&
+      pair.beauty.base.slim === 40 &&
+      styleActive(sp('vivid-cool'), pair),
+    '之後仍可在兩個分頁各自微調（顆粒 30、瘦臉 40、濾鏡強度 60%），風格仍打勾',
+  );
+  applyStyle(sp('vivid-cool'), pair);
+  ok(
+    !pair.filter.tuned && !pair.beauty.tuned && pair.filter.strength === 100,
+    '再點一次同一個風格 = 兩個分頁都還原（強度 100%、微調清掉）',
+  );
+  pair.beauty.select('glam');
+  ok(!styleActive(sp('vivid-cool'), pair), '在美顏分頁換成別的預設 → 風格不再打勾');
+
+  // 指到不存在的 id：缺的那一項保持原樣，不退回預設、不丟例外
+  applyStyle(sp('cool-grain'), pair);
+  let threw = false;
+  try {
+    res = applyStyle({ ...sp('soft-pink'), filter: 'no-such-filter' }, pair);
+  } catch {
+    threw = true;
+  }
+  ok(
+    !threw && res.missing.length === 1 && res.missing[0].kind === FILTER && res.missing[0].id === 'no-such-filter',
+    '濾鏡 id 不存在 → 不丟例外，回報缺濾鏡「no-such-filter」',
+  );
+  ok(
+    pair.filter.preset.id === 'fit-f4' && pair.beauty.preset.id === 'fit-f1',
+    '缺的濾鏡保持原本的 fit-f4（不退回「原圖」），美顏照樣切到 fit-f1',
+  );
+  res = applyStyle({ ...sp('soft-pink'), filter: 'x1', beauty: 'x2' }, pair);
+  ok(res.missing.length === 2 && pair.filter.preset.id === 'fit-f4' && pair.beauty.preset.id === 'fit-f1', '兩個都不存在 → 兩個分頁都不變');
+  const r = resolveStyle({ ...sp('soft-pink'), beauty: 'gone' }, { filter: F, beauty: B });
+  ok(r.filter?.id === 'fit-f1' && r.beauty === null && r.missing[0].kind === BEAUTY, 'resolveStyle 指出缺的是美顏「gone」');
+}
 
 // ---- 3. 濾鏡 → 整張畫面的調色 uniform；美顏 → 只進美顏遮罩與變形 ----
 section('渲染：濾鏡套整張畫面、美顏只套美顏開的臉');
@@ -284,7 +376,22 @@ const html = read('../app/index.html');
 const app = read('../app/app.js');
 const tabsHtml = html.match(/<div id="tabs" role="tablist"[\s\S]*?<\/div>/)?.[0] ?? '';
 const tabNames = [...tabsHtml.matchAll(/role="tab"[^>]*>([^<]+)</g)].map((x) => x[1].trim());
-ok(JSON.stringify(tabNames) === '["濾鏡","美顏"]', `底部只有兩個分頁：${tabNames.join('、')}`);
+ok(JSON.stringify(tabNames) === '["風格","濾鏡","美顏"]', `底部三個分頁：${tabNames.join('、')}`);
+const stylePanel = html.match(/<section id="panel-style"[\s\S]*?<\/section>/)?.[0] ?? '';
+ok(
+  /class="preset-bar"/.test(stylePanel) &&
+    /export-btn/.test(stylePanel) &&
+    /import-btn/.test(stylePanel) &&
+    !/type="range"/.test(stylePanel),
+  '「風格」分頁有自己的風格列、匯出與匯入，沒有強度條（強度在濾鏡、美顏分頁調）',
+);
+const pickFn = app.slice(app.indexOf('function applyStyleById'), app.indexOf('function buildStyleControls'));
+ok(
+  /applyStyle\(s, lookPair\(\)\)/.test(pickFn) &&
+    /for \(const t of TAB_LIST\)[\s\S]*?syncLook\(t\)/.test(pickFn) &&
+    !/tracker/.test(pickFn),
+  'app.js 點風格 → applyStyle 同時改兩個分頁並同步畫面，不碰 tracker（逐人美顏開關照舊）',
+);
 for (const k of ['filter', 'beauty']) {
   const panel = html.match(new RegExp(`<section id="panel-${k}"[\\s\\S]*?</section>`))?.[0] ?? '';
   ok(
@@ -322,8 +429,10 @@ const all = [
   'renderer.js',
   'filters/index.json',
   'beauty/index.json',
+  'styles/index.json',
   ...F.map((p) => `filters/${p.id}.xixi-filter.json`),
   ...B.map((p) => `beauty/${p.id}.xixi-beauty.json`),
+  ...S.map((p) => `styles/${p.id}.xixi-style.json`),
 ]
   .map((f) => read('../app/' + f))
   .join('\n');

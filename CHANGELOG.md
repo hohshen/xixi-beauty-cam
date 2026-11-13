@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-13
+
+### Added
+
+- Styles: a new "風格" (style) tab. One tap switches the filter tab and the beauty tab together to the presets the style names (strength 100%, fine-tuning cleared); you can still adjust each tab afterwards, and the style stays checked with an "（已調整）" mark. Per-face beauty on/off is unchanged.
+- `xixi-style` preset format (`app/styles/*.xixi-style.json`, with `index.json` and `schema.json`): a style stores only one filter id and one beauty id, no parameters and no URLs. Styles can be exported and imported (drag and drop or the import button) like the other two formats; when a style names a preset that is not in the list, the other half is still applied and a message says which file is missing.
+- Four built-in styles, listed after the existing presets: 柔霧粉 (soft-pink), 鮮彩冷調 (vivid-cool), 冷綠清透 (cool-green) and 冷白顆粒 (cool-grain).
+- Four filters (`fit-f1`–`fit-f4`: 柔霧粉, 鮮彩冷調, 冷綠清透, 冷白顆粒) and four beauty presets (`fit-f1`–`fit-f4`: 柔膚, 輕修, 精修, 小臉) used by the styles. Their parameters were fitted from reference photos; the beauty values are rough estimates.
+- `scripts/validate-presets.mjs` checks the style format; tests for the style format and for one-tap switching.
+
+### Changed
+
+- The default filter (none) and beauty preset (natural) are unchanged; no style is applied on first open.
+- `docs/filters.md` and `docs/filters.zh-TW.md` have a new section on styles.
+
 ## [0.2.1] - 2026-11-12
 
 ### Fixed
@@ -48,7 +63,8 @@ First public release.
 - "Use a photo as the camera" test input, mask view, difference ×20 view (against the filter-only frame) and an fps / timing panel.
 - Node test suites for presets and both preset formats, a browser warp test, ESLint and Prettier, commitlint for Conventional Commits, and GitHub Actions CI.
 
-[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/hohshen/xixi-beauty-cam/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hohshen/xixi-beauty-cam/releases/tag/v0.1.0

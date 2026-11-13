@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "fit-f2",
+  "name": "鮮彩冷調",
+  "author": "xixi-beauty-cam",
+  "description": "高飽和、偏冷、褪色低對比",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 8,
+    "contrast": -36,
+    "saturation": 66,
+    "temperature": -24,
+    "tint": -1,
+    "fade": 25,
+    "vignette": 0,
+    "grain": 0
+  }
+}

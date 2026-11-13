@@ -1,0 +1,15 @@
+{
+  "format": "xixi-beauty",
+  "version": 1,
+  "id": "fit-f2",
+  "name": "輕修",
+  "author": "xixi-beauty-cam",
+  "description": "中度磨皮、輕微瘦臉大眼（粗估）",
+  "license": "CC0-1.0",
+  "params": {
+    "smooth": 59,
+    "whiten": 0,
+    "slim": 11,
+    "eye": 10
+  }
+}

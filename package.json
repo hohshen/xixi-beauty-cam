@@ -1,6 +1,6 @@
 {
   "name": "xixi-beauty-cam",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "In-browser beauty camera with whole-frame color filters and per-face beauty you can switch off person by person.",
   "license": "Apache-2.0",

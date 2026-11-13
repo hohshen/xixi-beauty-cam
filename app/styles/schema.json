@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "xixi-style.schema.json",
+  "title": "xixi-beauty-cam 風格檔（*.xixi-style.json）",
+  "description": "一個風格一個檔。風格只記一個濾鏡 id 與一個美顏 id，沒有參數；在「風格」分頁點一下，濾鏡分頁與美顏分頁同時切到這兩個預設，之後仍可在兩個分頁各自微調。檔案只是資料：app 只讀下列欄位，不執行檔案內容，也不載入檔案裡的任何網址。不認得的欄位會被忽略（additionalProperties 保持開放）。",
+  "type": "object",
+  "required": ["format", "version", "id", "name", "filter", "beauty"],
+  "properties": {
+    "format": {
+      "description": "固定字串，用來認出這是 xixi-beauty-cam 的風格檔。",
+      "const": "xixi-style"
+    },
+    "version": {
+      "description": "格式版本，從 1 開始。app 能讀比自己新的版本，只取認得的欄位。",
+      "type": "integer",
+      "minimum": 1
+    },
+    "id": {
+      "description": "代號：小寫英數與連字號，開頭須為英數，最長 64 字。內建清單裡不可重複；匯入時撞名，app 會自動加尾碼。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "name": {
+      "description": "風格列上顯示的名稱，純文字（不解讀 HTML），1–20 字。建議用濾鏡的名稱。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "author": {
+      "description": "作者名稱，純文字，最長 40 字。缺少時當成空字串。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "description": {
+      "description": "名稱下方的一句話（副標），純文字，最長 60 字。建議寫美顏的名稱，例如「美顏：輕修」。",
+      "type": "string",
+      "maxLength": 60
+    },
+    "license": {
+      "description": "授權，建議用 SPDX 代號（例如 CC0-1.0）。缺少時當成空字串（未標授權）。",
+      "type": "string",
+      "maxLength": 40
+    },
+    "filter": {
+      "description": "要選的濾鏡 id（*.xixi-filter.json 的 id）。不在濾鏡列時 app 給警告、濾鏡分頁保持原樣。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "beauty": {
+      "description": "要選的美顏 id（*.xixi-beauty.json 的 id）。不在美顏列時 app 給警告、美顏分頁保持原樣。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    }
+  },
+  "examples": [
+    {
+      "format": "xixi-style",
+      "version": 1,
+      "id": "soft-film-glow",
+      "name": "淡淡底片",
+      "author": "小明",
+      "description": "美顏：柔光",
+      "license": "CC0-1.0",
+      "filter": "soft-film",
+      "beauty": "soft-glow"
+    }
+  ]
+}

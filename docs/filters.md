@@ -16,7 +16,7 @@ English | [繁體中文](filters.zh-TW.md)
 
 Render order in the single shader pass: **beauty first** (inside the beauty-on face mask), **then the filter** over the whole frame. The _Difference ×20_ view compares the result with the frame that has only the filter applied, so a person with beauty off is pure black.
 
-Both kinds are data only; the app never executes anything in them.
+Both kinds are data only; the app never executes anything in them. A third file kind, the **style** (`.xixi-style.json`), holds just one filter ID and one beauty ID and switches both tabs in one tap; see [section 3](#3-styles-filter--beauty-in-one-tap).
 
 ```
 tune in the app ──► Save as my filter / beauty ──► Export ──► share ──► recipient drags it onto the page
@@ -102,7 +102,57 @@ A key from the other kind (for example `smooth` in a filter file) is ignored, so
 
 The smallest valid file: `{ "format": "xixi-beauty", "version": 1, "id": "just-smooth", "name": "Smooth only", "params": { "smooth": 50 } }`.
 
-## 3. Propose a built-in
+## 3. Styles: filter + beauty in one tap
+
+**A style pairs one filter with one beauty preset: tap it in the 風格 (_Style_) tab and both the filter tab and the beauty tab switch to the presets it names.** A style file holds only the two IDs, no parameters, so the look always comes from the filter and beauty files.
+
+- **One tap** selects both tabs, with intensity back at 100% and fine-tuning cleared (the same as tapping a preset in those tabs). The style whose two IDs match the current selections is shown as checked.
+- **Fine-tune afterwards** in the filter and beauty tabs: intensity and Advanced keep the style checked; choosing a different preset in either tab unchecks it. The top of the style tab shows the current “filter + beauty”, marked 「（已調整）」 when adjusted.
+- **Per-person beauty on/off is unchanged**: a style only changes the two tab selections.
+- **Missing IDs**: the thumbnail is dimmed (dashed border) and its tooltip names what is missing. Tapping it leaves the missing side as it was (no fallback to the default), applies the other side, and says which file is missing, e.g. `缺濾鏡「fit-f9」（fit-f9.xixi-filter.json）`.
+- **Export**: _匯出這個風格_ downloads the last tapped style as `<id>.xixi-style.json`. Styles store IDs only; if one points at a custom filter or beauty preset, the app reminds you to export that file too.
+- **Import**: drag it in or use _匯入_, like the other two kinds. Drop a style together with the filter and beauty files it uses: filters and beauty presets are added first, styles last, and if a filter or beauty preset is renamed to `id-2` because of a clash, the style’s reference follows. An imported style is applied right away; missing references are named.
+- Custom styles live in localStorage under their own key and can be removed with ×; removing a style does not change the current filter or beauty preset.
+
+**Format** (`xixi-style`, [`app/styles/schema.json`](../app/styles/schema.json)): `format`, `version`, `id`, `name`, `author`, `description` and `license` follow the rules above. There is no `params`; instead two required fields:
+
+| Field    | Required | Type and limits    | Meaning                                                            |
+| -------- | -------- | ------------------ | ------------------------------------------------------------------ |
+| `filter` | yes      | same rules as `id` | ID of the filter to select (`id` of a `*.xixi-filter.json`)        |
+| `beauty` | yes      | same rules as `id` | ID of the beauty preset to select (`id` of a `*.xixi-beauty.json`) |
+
+Use the filter’s name as `name` and the beauty preset’s name in `description` (the subtitle). `soft-pink.xixi-style.json`:
+
+```json
+{
+  "format": "xixi-style",
+  "version": 1,
+  "id": "soft-pink",
+  "name": "柔霧粉",
+  "author": "xixi-beauty-cam",
+  "description": "美顏：柔膚",
+  "license": "CC0-1.0",
+  "filter": "fit-f1",
+  "beauty": "fit-f1"
+}
+```
+
+`params` and any other field in a style file are ignored: a style cannot carry its own parameters or point at a URL or path.
+
+**Built-in styles** (`app/styles/`, list in `app/styles/index.json`, no `default`: no style is applied on first open):
+
+| Style (= filter name) | Subtitle (beauty name) | Filter ID / beauty ID |
+| --------------------- | ---------------------- | --------------------- |
+| 柔霧粉                | 柔膚                   | `fit-f1`              |
+| 鮮彩冷調              | 輕修                   | `fit-f2`              |
+| 冷綠清透              | 精修                   | `fit-f3`              |
+| 冷白顆粒              | 小臉                   | `fit-f4`              |
+
+These four filter and beauty pairs were approximated from reference photos; the beauty values are rough estimates. They come after the existing presets, and neither tab’s `default` changed.
+
+To propose a built-in style, name it `<id>.xixi-style.json`, put it in `app/styles/` and add it to `presets` in `index.json`; `filter` and `beauty` must point at built-in presets (`npm run validate:presets` checks this).
+
+## 4. Propose a built-in
 
 1. Make it in the app and export it.
 2. Pick an unused `id`, name the file `<id>.xixi-filter.json` (into `app/filters/`) or `<id>.xixi-beauty.json` (into `app/beauty/`).
@@ -111,7 +161,7 @@ The smallest valid file: `{ "format": "xixi-beauty", "version": 1, "id": "just-s
 5. Run `npm run validate:presets` and `npm test`. Check a single file with `node scripts/validate-presets.mjs path/to/file.xixi-filter.json`.
 6. Open a pull request with a short description of the look. Screenshots must not show identifiable faces.
 
-## 4. Safety rules
+## 5. Safety rules
 
 Preset files come from strangers, so the app treats them strictly as data:
 
@@ -119,6 +169,7 @@ Preset files come from strangers, so the app treats them strictly as data:
 - Only known fields are copied into a new object; unknown fields (including `__proto__`) are dropped and never written back on export.
 - Text is shown with `textContent`, never as HTML. Control and bidi-override characters are stripped. URLs in files are never loaded.
 - Numbers are clamped to their range; non-numbers, `Infinity` and files over 64 KB are rejected.
-- The built-in index accepts only bare `<id>.xixi-filter.json` / `<id>.xixi-beauty.json` file names in its own folder.
+- The built-in index accepts only bare `<id>.xixi-filter.json` / `<id>.xixi-beauty.json` / `<id>.xixi-style.json` file names in its own folder.
+- A style’s `filter` and `beauty` accept IDs only, never URLs or paths; they are looked up only among presets the app already has.
 
-Each rule has a Node test in `tests/preset-format.test.mjs`, run for both formats. If you find a way around them, please report it privately (see [SECURITY.md](../SECURITY.md)).
+Each rule has a Node test in `tests/preset-format.test.mjs`, run for filters and beauty presets, plus a section for styles. If you find a way around them, please report it privately (see [SECURITY.md](../SECURITY.md)).

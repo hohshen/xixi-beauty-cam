@@ -4,6 +4,7 @@
 // 底部兩個分頁，各選各的：
 // - 濾鏡：內建在 filters/*.xixi-filter.json（清單 filters/index.json），套在整張畫面，美顏關的人也一起套。
 // - 美顏：內建在 beauty/*.xixi-beauty.json（清單 beauty/index.json），只套在美顏開的人臉上，不調色。
+// 另有「風格」分頁：styles/*.xixi-style.json 只記一個濾鏡 id 與一個美顏 id，點一下同時切換上面兩個分頁。
 // 自訂與匯入的預設存在 localStorage；參數 × 強度由 look.js 算好傳給 renderer 與 warp。預設檔只當資料讀（presets.js 驗證），不執行。
 // 所有影像與 landmark 只在本機處理。MediaPipe 的 JS、WASM 與模型都放在 vendor/（固定版本），
 // 頁面只向自己的網域發請求；index.html 的 CSP（connect-src 'self'）擋掉其他網域，service worker（sw.js）快取全部檔案，離線也能用。
@@ -16,6 +17,7 @@ import { drawFaceMask } from './mask.js';
 import {
   FILTER,
   BEAUTY,
+  STYLE,
   MAX_FILE_BYTES,
   loadBuiltinPresets,
   loadCustomPresets,
@@ -26,8 +28,10 @@ import {
   uniqueId,
   newCustomId,
   isIdentity,
+  resolveStyle,
+  missingRefsText,
 } from './presets.js';
-import { Look, loadSelectedId, saveSelectedId } from './look.js';
+import { Look, loadSelectedId, saveSelectedId, applyStyle, styleActive } from './look.js';
 import { AutoQuality, QUALITY_LEVELS } from './quality.js';
 import { camRequest, centerCrop, frameFit, isPortrait, simSize, visibleRect } from './layout.js';
 
@@ -103,8 +107,8 @@ function flash(msg, ms = 5000) {
 const TAB_KEY = 'xixi-beauty-cam.tab';
 const FALLBACK_NAME = { filter: '原圖', beauty: '無美顏' };
 
-async function loadTab(kind) {
-  // 檔名在 presets.js 驗證過（只接受同資料夾的 <id>.xixi-filter.json／<id>.xixi-beauty.json）
+async function loadBuiltin(kind) {
+  // 檔名在 presets.js 驗證過（只接受同資料夾的 <id>.xixi-filter.json／<id>.xixi-beauty.json／<id>.xixi-style.json）
   const b = await loadBuiltinPresets(kind, async (name) => {
     const res = await fetch(new URL(`${kind.dir}/${name}`, import.meta.url));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -114,26 +118,28 @@ async function loadTab(kind) {
     console.warn(`內建${kind.label}有問題`, b.errors);
     flash(`內建${kind.label}有 ${b.errors.length} 個問題：${b.errors.map((e) => `${e.file} ${e.field} ${e.message}`).join('；')}`, 15000);
   }
-  if (!b.presets.length) {
-    // 清單整個讀不到（例如直接用 file:// 開頁面）：至少留一個全 0（不作用）的預設讓頁面能用
-    const params = Object.fromEntries(kind.keys.map((k) => [k, 0]));
-    b.presets.push({ id: 'none', name: FALLBACK_NAME[kind.kind], desc: '', author: '', license: '', params, builtin: true });
-    b.defaultId = 'none';
-  }
-  // 自訂預設（另存與匯入的）接在內建後面；id 撞到內建的就加尾碼
+  return b;
+}
+
+/** 自訂的（另存與匯入的）接在內建後面；id 撞到內建的就加尾碼 */
+function loadCustom(kind, builtin) {
   const custom = [];
-  const taken = new Set(b.presets.map((p) => p.id));
+  const taken = new Set(builtin.map((p) => p.id));
   for (const p of loadCustomPresets(kind, safeStorage())) {
     p.id = uniqueId(p.id, taken);
     taken.add(p.id);
     custom.push(p);
   }
+  return custom;
+}
+
+function makeTab(kind, builtin, defaultId) {
   const panel = $(`panel-${kind.kind}`);
-  const tab = {
+  return {
     kind,
-    builtin: b.presets,
-    defaultId: b.defaultId,
-    custom,
+    builtin,
+    defaultId,
+    custom: loadCustom(kind, builtin),
     panel,
     q: (cls) => panel.querySelector(`.${cls}`),
     items: new Map(), // id -> {btn, thumb, css}
@@ -142,12 +148,33 @@ async function loadTab(kind) {
       return [...this.builtin, ...this.custom];
     },
   };
+}
+
+async function loadTab(kind) {
+  const b = await loadBuiltin(kind);
+  if (!b.presets.length) {
+    // 清單整個讀不到（例如直接用 file:// 開頁面）：至少留一個全 0（不作用）的預設讓頁面能用
+    const params = Object.fromEntries(kind.keys.map((k) => [k, 0]));
+    b.presets.push({ id: 'none', name: FALLBACK_NAME[kind.kind], desc: '', author: '', license: '', params, builtin: true });
+    b.defaultId = 'none';
+  }
+  const tab = makeTab(kind, b.presets, b.defaultId);
   tab.look = new Look(kind, tab.all(), b.defaultId).select(loadSelectedId(kind, safeStorage(), tab.all(), b.defaultId));
   return tab;
 }
 
+// 風格分頁：沒有 Look，只有清單與「最後點選的風格」（匯出用）。讀不到清單就是空的列，不影響另外兩個分頁。
+async function loadStyleTab() {
+  const tab = makeTab(STYLE, (await loadBuiltin(STYLE)).presets, null);
+  tab.selectedId = null;
+  return tab;
+}
+
 const tabs = { filter: await loadTab(FILTER), beauty: await loadTab(BEAUTY) };
-const TAB_LIST = [tabs.filter, tabs.beauty];
+const TAB_LIST = [tabs.filter, tabs.beauty]; // 有 Look（選擇、強度、微調）的兩個分頁
+tabs.style = await loadStyleTab();
+const PANEL_LIST = [tabs.style, ...TAB_LIST]; // 底部三個分頁，順序同 index.html
+const lookPair = () => ({ filter: tabs.filter.look, beauty: tabs.beauty.look });
 let activeKind = 'filter';
 // 每幀傳進 renderer 與 warp 的值；只在操作時重算。filter 作用在整張畫面，beauty 只作用在美顏開的臉。
 const effect = { filter: tabs.filter.look.params(), beauty: tabs.beauty.look.params() };
@@ -168,8 +195,9 @@ function ema(prev, v) {
 
 // ---------- 分頁、預設列、強度、進階 ----------
 function setTab(kind) {
+  if (!tabs[kind]) kind = 'filter';
   activeKind = kind;
-  for (const t of TAB_LIST) {
+  for (const t of PANEL_LIST) {
     const on = t.kind.kind === kind;
     $(`tab-${t.kind.kind}`).setAttribute('aria-selected', String(on));
     t.panel.hidden = !on;
@@ -198,7 +226,7 @@ function renderBar(tab) {
     btn.title = `${p.name}：${p.desc}` + (p.author ? `（作者：${p.author}）` : '');
     const thumb = document.createElement('canvas');
     thumb.width = thumb.height = 96;
-    paintPlaceholder(thumb, i + (tab.kind === BEAUTY ? 3 : 0));
+    paintPlaceholder(thumb, i + (tab.kind === BEAUTY ? 3 : tab.kind === STYLE ? 6 : 0));
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = p.name;
@@ -222,7 +250,7 @@ function renderBar(tab) {
       item.appendChild(rm);
     }
     bar.appendChild(item);
-    tab.items.set(p.id, { btn, thumb, css: tab.kind === FILTER ? thumbFilterCss(p.params) : 'none' });
+    tab.items.set(p.id, { btn, thumb, css: thumbCss(tab.kind, p) });
   });
   thumbAt = 0; // 開始後下一幀就把新縮圖換成目前畫面
 }
@@ -288,6 +316,16 @@ function paintPlaceholder(c, i) {
   g.fillRect(0, 0, c.width, c.height);
 }
 
+// 縮圖的 CSS filter：濾鏡用自己的參數；風格用它引用的濾鏡（找不到就不調色）；美顏不調色
+function thumbCss(kind, p) {
+  if (kind === FILTER) return thumbFilterCss(p.params);
+  if (kind === STYLE) {
+    const f = tabs.filter.all().find((x) => x.id === p.filter);
+    return f ? thumbFilterCss(f.params) : 'none';
+  }
+  return 'none';
+}
+
 // 濾鏡縮圖的近似預覽：用 2D canvas 的 CSS filter 粗略模擬曝光、對比、飽和、色溫（只給縮圖看大概，實際效果以預覽為準）
 function thumbFilterCss(p) {
   const parts = [`brightness(${(2 ** (p.exposure / 100)).toFixed(3)})`, `contrast(${(1 + p.contrast / 200).toFixed(3)})`];
@@ -343,6 +381,86 @@ function syncLook(tab) {
     tab.advEls[k].input.value = look.base[k];
     tab.advEls[k].out.value = look.base[k];
   }
+  syncStyle();
+}
+
+// ---------- 風格分頁：一個濾鏡＋一個美顏，點一下同時切換兩個分頁 ----------
+// 打勾的是「目前兩個分頁選的預設剛好是它引用的」那個風格；之後在分頁裡微調也還算，換了預設就不算。
+function syncStyle() {
+  const tab = tabs.style;
+  if (!tab) return; // 啟動時兩個分頁先同步，風格分頁還沒載入
+  const l = lookPair();
+  const lists = { filter: tabs.filter.all(), beauty: tabs.beauty.all() };
+  for (const [id, { btn }] of tab.items) {
+    const s = tab.all().find((x) => x.id === id);
+    btn.setAttribute('aria-checked', String(styleActive(s, l)));
+    const { missing } = resolveStyle(s, lists);
+    btn.classList.toggle('broken', missing.length > 0);
+    btn.title = missing.length
+      ? `${s.name}：${missingRefsText(missing)}`
+      : `${s.name}：${s.desc}` + (s.author ? `（作者：${s.author}）` : '');
+  }
+  const tuned = TAB_LIST.some((t) => t.look.tuned || t.look.strength !== 100) ? '（已調整）' : '';
+  tab.q('style-now').textContent = `濾鏡「${l.filter.preset.name}」＋美顏「${l.beauty.preset.name}」${tuned}`;
+  tab.q('export-btn').disabled = !tab.all().some((x) => x.id === tab.selectedId);
+}
+
+/** 套用風格：兩個分頁同時切到它引用的預設（存起來、更新畫面）；回傳缺了哪些引用。 */
+function applyStyleById(id) {
+  const tab = tabs.style;
+  const s = tab.all().find((x) => x.id === id);
+  if (!s) return null;
+  tab.selectedId = id;
+  const { missing } = applyStyle(s, lookPair());
+  for (const t of TAB_LIST) {
+    saveSelectedId(t.kind, safeStorage(), t.look.preset.id);
+    syncLook(t);
+  }
+  return missing;
+}
+
+function pickStyle(id) {
+  const s = tabs.style.all().find((x) => x.id === id);
+  const missing = applyStyleById(id);
+  if (!s || !missing?.length) return;
+  // 缺的那一項保持原樣，另一項照套；兩項都缺就什麼都沒變
+  const rest = missing.length === 2 ? '沒有套用任何效果' : `只套用了${missing[0].field === 'filter' ? '美顏' : '濾鏡'}`;
+  flash(`風格「${s.name}」${missingRefsText(missing)}，${rest}；把缺的檔案匯入後再點一次`, 10000);
+}
+
+function buildStyleControls(tab) {
+  renderBar(tab);
+  tab.q('preset-bar').addEventListener('click', (e) => {
+    const rm = e.target.closest('.remove');
+    if (rm) {
+      removeCustom(tab, rm.dataset.id);
+      return;
+    }
+    const btn = e.target.closest('.preset');
+    if (btn) pickStyle(btn.dataset.id);
+  });
+  tab.q('export-btn').addEventListener('click', () => exportStyle(tab));
+  tab.q('import-btn').addEventListener('click', () => $('importFile').click());
+}
+
+function exportStyle(tab) {
+  const s = tab.all().find((x) => x.id === tab.selectedId);
+  if (!s) {
+    flash('先點一個風格，再匯出');
+    return;
+  }
+  downloadText(presetFileText(STYLE, s), presetFileName(STYLE, s));
+  // 風格檔只記 id：引用的是自訂預設時，對方也要有那個檔
+  const r = resolveStyle(s, { filter: tabs.filter.all(), beauty: tabs.beauty.all() });
+  const extra = Object.keys(STYLE.refs)
+    .filter((k) => r[k]?.custom)
+    .map((k) => `${STYLE.refs[k].label}「${r[k].name}」`);
+  flash(
+    extra.length
+      ? `已匯出 ${presetFileName(STYLE, s)}；它用到自訂的${extra.join('、')}，請到那個分頁一起匯出給對方`
+      : `已匯出 ${presetFileName(STYLE, s)}`,
+    8000,
+  );
 }
 
 function setAdvanced(tab, open) {
@@ -361,6 +479,12 @@ function persistCustom(tab) {
 }
 
 function refreshPresets(tab, selectId) {
+  if (tab.kind === STYLE) {
+    renderBar(tab);
+    if (selectId) applyStyleById(selectId);
+    else syncStyle();
+    return;
+  }
   tab.look.setPresets(tab.all());
   renderBar(tab);
   if (selectId) selectPreset(tab, selectId);
@@ -419,38 +543,47 @@ function removeCustom(tab, id) {
   if (!p) return;
   tab.custom = tab.custom.filter((x) => x.id !== id);
   persistCustom(tab);
-  refreshPresets(tab, tab.look.preset.id === id ? tab.defaultId : null);
+  if (tab.kind === STYLE) {
+    if (tab.selectedId === id) tab.selectedId = null;
+    refreshPresets(tab, null); // 移除風格不改目前的濾鏡與美顏
+  } else refreshPresets(tab, tab.look.preset.id === id ? tab.defaultId : null);
+  // 縮圖與「缺哪個」的提示跟著被移除的濾鏡或美顏變
+  if (tab.kind !== STYLE) {
+    renderBar(tabs.style);
+    syncStyle();
+  }
   flash(`已移除「${p.name}」`);
 }
 
 // ---------- 分享：匯出、匯入 ----------
-function exportCurrent(tab) {
-  const p = tab.look.preset;
-  const blob = new Blob([presetFileText(tab.kind, p)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.download = presetFileName(tab.kind, p);
-  a.href = URL.createObjectURL(blob);
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  const label = tab.kind.label;
-  flash(
-    tab.look.tuned ? `已匯出「${p.name}」原本的值；要匯出微調後的效果，先「另存為我的${label}」再匯出那一個` : `已匯出 ${a.download}`,
-    7000,
-  );
+function downloadText(text, name) {
+  downloadBlob(new Blob([text], { type: 'application/json' }), name);
 }
 
-const samePreset = (kind, a, b) => a.name === b.name && kind.keys.every((k) => a.params[k] === b.params[k]);
+function exportCurrent(tab) {
+  const p = tab.look.preset;
+  const name = presetFileName(tab.kind, p);
+  downloadText(presetFileText(tab.kind, p), name);
+  const label = tab.kind.label;
+  flash(tab.look.tuned ? `已匯出「${p.name}」原本的值；要匯出微調後的效果，先「另存為我的${label}」再匯出那一個` : `已匯出 ${name}`, 7000);
+}
+
+const samePreset = (kind, a, b) =>
+  a.name === b.name &&
+  (kind.refs ? Object.keys(kind.refs).every((k) => a[k] === b[k]) : kind.keys.every((k) => a.params[k] === b.params[k]));
 
 // 檔案只在瀏覽器內讀成文字，交給 parsePresetText（JSON.parse＋逐欄驗證），不執行、不載入裡面的任何網址。
-// 依 format 欄位自動分到對的分頁：xixi-filter → 濾鏡，xixi-beauty → 美顏。
+// 依 format 欄位自動分到對的分頁：xixi-filter → 濾鏡，xixi-beauty → 美顏，xixi-style → 風格。
+// 風格放在最後處理：同一批一起匯入的濾鏡、美顏先進清單，風格才找得到；它們因撞名改了 id，風格的引用也跟著改。
 async function importFiles(fileList) {
   const files = [...fileList];
   if (!files.length) return;
   const msgs = [];
   const last = new Map(); // tab -> 最後匯入（或已存在）的 id
+  const parsed = [];
   for (const file of files) {
     if (!/\.json$/i.test(file.name)) {
-      msgs.push(`「${file.name}」不是 .xixi-filter.json 或 .xixi-beauty.json`);
+      msgs.push(`「${file.name}」不是 .xixi-filter.json、.xixi-beauty.json 或 .xixi-style.json`);
       continue;
     }
     if (file.size > MAX_FILE_BYTES) {
@@ -468,29 +601,42 @@ async function importFiles(fileList) {
       msgs.push(`「${file.name}」沒有匯入：${r.errors.map((x) => `${x.field} ${x.message}`).join('；')}`);
       continue;
     }
+    parsed.push(r);
+  }
+  parsed.sort((a, b) => (a.kind === STYLE) - (b.kind === STYLE)); // 穩定排序：風格排最後，其餘照原順序
+  const renamed = { filter: new Map(), beauty: new Map() }; // 這一批裡：檔案的 id -> 進清單後的 id
+  for (const r of parsed) {
     const tab = tabs[r.kind.kind];
     const label = r.kind.label;
+    if (r.kind === STYLE) for (const k of Object.keys(STYLE.refs)) r.preset[k] = renamed[k].get(r.preset[k]) ?? r.preset[k];
     const dup = tab.all().find((x) => x.id === r.preset.id && samePreset(r.kind, x, r.preset));
+    let p = dup;
     if (dup) {
       msgs.push(`${label}「${r.preset.name}」已經在${label}列裡`);
-      last.set(tab, dup.id);
-      continue;
+    } else {
+      p = {
+        ...r.preset,
+        id: uniqueId(
+          r.preset.id,
+          tab.all().map((x) => x.id),
+        ),
+        custom: true,
+      };
+      tab.custom.push(p);
+      const warn = r.warnings.length ? `（${r.warnings.map((x) => `${x.field} ${x.message}`).join('；')}）` : '';
+      msgs.push(`已匯入${label}「${p.name}」${warn}`);
     }
-    const p = {
-      ...r.preset,
-      id: uniqueId(
-        r.preset.id,
-        tab.all().map((x) => x.id),
-      ),
-      custom: true,
-    };
-    tab.custom.push(p);
     last.set(tab, p.id);
-    const warn = r.warnings.length ? `（${r.warnings.map((x) => `${x.field} ${x.message}`).join('；')}）` : '';
-    msgs.push(`已匯入${label}「${p.name}」${warn}`);
+    if (renamed[r.kind.kind]) renamed[r.kind.kind].set(r.preset.id, p.id);
+    if (r.kind === STYLE) {
+      const { missing } = resolveStyle(p, { filter: tabs.filter.all(), beauty: tabs.beauty.all() });
+      if (missing.length) msgs.push(`⚠ 風格「${p.name}」${missingRefsText(missing)}，請把缺的檔案一起匯入`);
+    }
   }
+  // 先更新濾鏡與美顏，風格最後（套用風格時要看到新匯入的預設）
   for (const [tab, id] of last) {
     if (tab.custom.length) persistCustom(tab);
+    if (tab.kind === STYLE) renderBar(tab); // 縮圖要用新匯入的濾鏡
     refreshPresets(tab, id);
   }
   // 切到最後匯入的那一種，使用者馬上看得到結果
@@ -503,6 +649,8 @@ for (const t of TAB_LIST) {
   buildControls(t);
   syncLook(t);
 }
+buildStyleControls(tabs.style);
+syncStyle();
 {
   let saved = null;
   try {
@@ -510,7 +658,7 @@ for (const t of TAB_LIST) {
   } catch {
     /* 讀不到就用濾鏡分頁 */
   }
-  setTab(saved === 'beauty' ? 'beauty' : 'filter');
+  setTab(saved === 'beauty' || saved === 'style' ? saved : 'filter');
 }
 $('tabs').addEventListener('click', (e) => {
   const t = e.target.closest('[role="tab"]');
@@ -1097,6 +1245,7 @@ window.beautyCam = {
   tabs,
   setTab,
   selectPreset: (kind, id) => selectPreset(tabs[kind], id),
+  applyStyle: pickStyle,
   importFiles,
   get effect() {
     return effect;

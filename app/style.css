@@ -342,6 +342,20 @@ button.icon {
   flex: 1;
   accent-color: var(--accent);
 }
+/* 風格分頁：目前的濾鏡＋美顏，取代強度條的位置 */
+.style-now {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 風格引用的濾鏡或美顏不在清單：縮圖變淡，點了會說缺哪個 */
+.preset.broken canvas {
+  opacity: 0.4;
+  border-style: dashed;
+}
 .strength-val {
   min-width: 3.2em;
   text-align: right;

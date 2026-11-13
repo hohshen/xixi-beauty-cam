@@ -1,0 +1,5 @@
+{
+  "format": "xixi-style-index",
+  "version": 1,
+  "presets": ["soft-pink.xixi-style.json", "vivid-cool.xixi-style.json", "cool-green.xixi-style.json", "cool-grain.xixi-style.json"]
+}

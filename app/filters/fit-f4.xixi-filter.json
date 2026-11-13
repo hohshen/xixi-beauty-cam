@@ -1,0 +1,19 @@
+{
+  "format": "xixi-filter",
+  "version": 1,
+  "id": "fit-f4",
+  "name": "冷白顆粒",
+  "author": "xixi-beauty-cam",
+  "description": "微亮、偏冷、帶細顆粒",
+  "license": "CC0-1.0",
+  "params": {
+    "exposure": 9,
+    "contrast": -17,
+    "saturation": 21,
+    "temperature": -22,
+    "tint": 8,
+    "fade": 11,
+    "vignette": 0,
+    "grain": 20
+  }
+}

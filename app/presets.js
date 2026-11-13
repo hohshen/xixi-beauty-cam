@@ -3,6 +3,7 @@
 // 兩種預設，格式分開：
 // - 濾鏡（*.xixi-filter.json）：套在整張畫面的調色，所有人和背景一起套。內建的在 filters/。
 // - 美顏預設（*.xixi-beauty.json）：只套在「美顏開」的人臉上（磨皮、美白、瘦臉、大眼），不調色。內建的在 beauty/。
+// 另有「風格」（*.xixi-style.json）：不含參數，只記一個濾鏡 id 與一個美顏 id，點一下同時切換兩個分頁。內建的在 styles/。
 // 參數值不寫在這裡：內建預設在各自資料夾的 *.json，清單在 index.json，格式見 schema.json 與 docs/filters.md。
 //
 // 安全原則：預設檔只是資料。
@@ -69,7 +70,29 @@ export const BEAUTY = defineKind({
   },
 });
 
+/** 有參數的兩種預設（濾鏡、美顏），各有自己的分頁、強度與進階。 */
 export const KINDS = [FILTER, BEAUTY];
+
+/**
+ * 風格：一個濾鏡加一個美顏的組合，檔案裡只有兩個 id（refs），沒有參數。
+ * refs 的每一項是 { 欄位名: 被引用的那種預設 }；匯入、套用時用 resolveStyle 找出引用的預設。
+ */
+export const STYLE = Object.freeze({
+  kind: 'style',
+  label: '風格',
+  format: 'xixi-style',
+  indexFormat: 'xixi-style-index',
+  ext: '.xixi-style.json',
+  dir: 'styles',
+  defaultId: null, // 風格沒有預設選擇：目前的濾鏡與美顏剛好是哪個風格，就標哪個
+  storageKey: 'xixi-beauty-cam.custom-styles',
+  keys: [],
+  refs: Object.freeze({ filter: FILTER, beauty: BEAUTY }),
+  fileRe: /^[a-z0-9][a-z0-9-]{0,63}\.xixi-style\.json$/,
+});
+
+/** 全部三種檔案格式；匯入時依 format 分類。 */
+export const ALL_KINDS = [FILTER, BEAUTY, STYLE];
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const TEXT_LIMITS = { name: 20, author: 40, description: 60, license: 40 };
@@ -82,7 +105,7 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const fileErr = (message) => ({ ok: false, errors: [{ field: '(整個檔案)', message }] });
 
 export function kindOfFormat(format) {
-  return KINDS.find((k) => k.format === format) ?? null;
+  return ALL_KINDS.find((k) => k.format === format) ?? null;
 }
 
 /** 參數夾到該項的範圍並取整數。 */
@@ -98,7 +121,8 @@ function cleanText(v) {
 /**
  * 驗證一個已解析的預設物件。
  * 回傳 { ok: true, kind, preset, warnings } 或 { ok: false, errors }；errors／warnings 是 [{ field, message }]。
- * preset 是 app 內部用的物件：{ id, name, desc, author, license, params: { 該種預設的參數 } }。
+ * preset 是 app 內部用的物件：{ id, name, desc, author, license, params: { 該種預設的參數 } }；
+ * 風格沒有 params，改成 { …, filter: 濾鏡 id, beauty: 美顏 id }。
  */
 export function validatePreset(kind, data) {
   const errors = [];
@@ -138,8 +162,16 @@ export function validatePreset(kind, data) {
   }
 
   const params = {};
+  const refs = {};
   const shape = `{ ${kind.keys.join(', ')} }`;
-  if (!own(data, 'params')) err('params', `缺少，應為 ${shape}`);
+  if (kind.refs) {
+    // 風格：只收引用的 id，格式與預設檔的 id 相同；引用的預設存不存在要等套用時才知道（resolveStyle）
+    for (const [k, ref] of Object.entries(kind.refs)) {
+      if (!own(data, k)) err(k, `缺少，應為${ref.label}的 id`);
+      else if (typeof data[k] !== 'string' || !ID_RE.test(data[k])) err(k, `應為${ref.label}的 id（小寫英數與連字號，最長 64 字）`);
+      else refs[k] = data[k];
+    }
+  } else if (!own(data, 'params')) err('params', `缺少，應為 ${shape}`);
   else if (!isObj(data.params)) err('params', `應為物件 ${shape}`);
   else {
     for (const k of kind.keys) {
@@ -159,24 +191,21 @@ export function validatePreset(kind, data) {
   }
 
   if (errors.length) return { ok: false, errors };
-  return {
-    ok: true,
-    kind,
-    warnings,
-    preset: {
-      id: data.id,
-      name: text.name,
-      desc: text.description,
-      author: text.author,
-      license: text.license,
-      params,
-    },
+  const preset = {
+    id: data.id,
+    name: text.name,
+    desc: text.description,
+    author: text.author,
+    license: text.license,
   };
+  if (kind.refs) for (const k of Object.keys(kind.refs)) preset[k] = refs[k];
+  else preset.params = params;
+  return { ok: true, kind, warnings, preset };
 }
 
 /**
  * 解析預設檔的文字內容（JSON.parse，不執行任何東西）。
- * 給 kind 就只收那一種；不給就依 format 欄位自動判斷是濾鏡還是美顏預設（匯入時用）。
+ * 給 kind 就只收那一種；不給就依 format 欄位自動判斷是濾鏡、美顏預設還是風格（匯入時用）。
  */
 export function parsePresetText(text, kind = null) {
   if (typeof text !== 'string') return fileErr('讀不到文字內容');
@@ -191,7 +220,7 @@ export function parsePresetText(text, kind = null) {
   if (!isObj(data)) return fileErr('必須是 JSON 物件 {…}');
   const k = kindOfFormat(data.format);
   if (!k) {
-    const want = KINDS.map((x) => `"${x.format}"（${x.label}）`).join(' 或 ');
+    const want = ALL_KINDS.map((x) => `"${x.format}"（${x.label}）`).join(' 或 ');
     return { ok: false, errors: [{ field: 'format', message: own(data, 'format') ? `認不得，應為 ${want}` : `缺少，應為 ${want}` }] };
   }
   return validatePreset(k, data);
@@ -199,7 +228,7 @@ export function parsePresetText(text, kind = null) {
 
 /** 把內部預設物件轉成要寫出的檔案內容（固定欄位順序，不帶內部狀態）。 */
 export function toPresetFile(kind, p) {
-  return {
+  const file = {
     format: kind.format,
     version: FORMAT_VERSION,
     id: p.id,
@@ -207,8 +236,29 @@ export function toPresetFile(kind, p) {
     author: p.author ?? '',
     description: p.desc ?? '',
     license: p.license ?? '',
-    params: Object.fromEntries(kind.keys.map((k) => [k, p.params[k] ?? 0])),
   };
+  if (kind.refs) for (const k of Object.keys(kind.refs)) file[k] = p[k];
+  else file.params = Object.fromEntries(kind.keys.map((k) => [k, p.params[k] ?? 0]));
+  return file;
+}
+
+/**
+ * 找出風格引用的濾鏡與美顏。lists 是 { filter: [濾鏡…], beauty: [美顏…] }（目前分頁裡的全部預設）。
+ * 回傳 { filter: 預設或 null, beauty: 預設或 null, missing: [{ field, kind, id }] }；找不到的不猜、不退回預設。
+ */
+export function resolveStyle(style, lists) {
+  const out = { missing: [] };
+  for (const [k, ref] of Object.entries(STYLE.refs)) {
+    const hit = (lists[k] ?? []).find((p) => p.id === style[k]) ?? null;
+    out[k] = hit;
+    if (!hit) out.missing.push({ field: k, kind: ref, id: style[k] });
+  }
+  return out;
+}
+
+/** 缺了哪些引用，寫成一句話：缺濾鏡「fit-f9」（fit-f9.xixi-filter.json）、缺美顏「…」。 */
+export function missingRefsText(missing) {
+  return missing.map((m) => `缺${m.kind.label}「${m.id}」（${m.id}${m.kind.ext}）`).join('、');
 }
 
 export function presetFileText(kind, p) {
@@ -235,7 +285,7 @@ export function newCustomId(taken, now = Date.now()) {
   return uniqueId(`my-${now.toString(36)}`, taken);
 }
 
-/** 全部參數都是 0：不作用（「原圖」濾鏡、「無美顏」）。 */
+/** 全部參數都是 0：不作用（「原圖」濾鏡、「無美顏」）。風格沒有參數，不適用。 */
 export function isIdentity(kind, params) {
   return kind.keys.every((k) => params[k] === 0);
 }

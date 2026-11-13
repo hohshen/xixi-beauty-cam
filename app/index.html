@@ -42,7 +42,7 @@
       </div>
       <input id="simFile" type="file" accept="image/jpeg,image/png" hidden />
       <input id="importFile" type="file" accept=".json,application/json" multiple hidden />
-      <div id="dropHint">放開以匯入濾鏡（.xixi-filter.json）或美顏預設（.xixi-beauty.json）</div>
+      <div id="dropHint">放開以匯入濾鏡（.xixi-filter.json）、美顏預設（.xixi-beauty.json）或風格（.xixi-style.json）</div>
 
       <div id="simBadge">模擬鏡頭</div>
       <div id="status" role="status"></div>
@@ -67,17 +67,19 @@
           <label class="row sim-only"><input id="simJitter" type="checkbox" checked /> 模擬鏡頭微抖動</label>
           <button id="menuCam">切回真鏡頭</button>
           <button id="menuSim">用照片模擬鏡頭</button>
-          <button id="menuImport" title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；也可以直接把檔案拖進頁面">
-            匯入濾鏡／美顏檔
+          <button id="menuImport" title="選一個或多個 .xixi-filter.json／.xixi-beauty.json／.xixi-style.json；也可以直接把檔案拖進頁面">
+            匯入濾鏡／美顏／風格檔
           </button>
           <pre id="stats">fps —</pre>
         </div>
       </div>
 
-      <!-- 底部操作：分頁（濾鏡／美顏）→ 該分頁的強度滑桿與預設列 → 快門。
-           濾鏡 = 整張畫面的調色；美顏 = 只在「美顏開」的人臉上磨皮、美白、瘦臉、大眼，不調色。 -->
+      <!-- 底部操作：分頁（風格／濾鏡／美顏）→ 該分頁的強度滑桿與預設列 → 快門。
+           濾鏡 = 整張畫面的調色；美顏 = 只在「美顏開」的人臉上磨皮、美白、瘦臉、大眼，不調色；
+           風格 = 一個濾鏡＋一個美顏，點一下同時切換兩個分頁（之後仍可在兩個分頁各自微調）。 -->
       <div id="dock">
         <div id="tabs" role="tablist" aria-label="效果">
+          <button id="tab-style" role="tab" type="button" data-kind="style" aria-controls="panel-style" aria-selected="false">風格</button>
           <button id="tab-filter" role="tab" type="button" data-kind="filter" aria-controls="panel-filter" aria-selected="true">
             濾鏡
           </button>
@@ -85,6 +87,21 @@
             美顏
           </button>
         </div>
+        <section id="panel-style" class="panel" role="tabpanel" aria-labelledby="tab-style" data-kind="style" hidden>
+          <!-- 風格沒有自己的強度：點一下就把濾鏡與美顏分頁切到它引用的預設，強度與微調到那兩個分頁調 -->
+          <div class="strength-row">
+            <span class="style-now" aria-live="polite"></span>
+            <button class="chip export-btn" type="button" title="把最後點選的風格下載成 .xixi-style.json，傳給別人">匯出這個風格</button>
+            <button
+              class="chip import-btn"
+              type="button"
+              title="選一個或多個 .xixi-filter.json／.xixi-beauty.json／.xixi-style.json；會依檔案格式自動放進對的分頁"
+            >
+              匯入
+            </button>
+          </div>
+          <div id="styleBar" class="preset-bar" role="radiogroup" aria-label="風格"></div>
+        </section>
         <section id="panel-filter" class="panel" role="tabpanel" aria-labelledby="tab-filter" data-kind="filter">
           <div class="strength-row">
             <label for="filterStrength" class="strength-name"></label>
@@ -107,7 +124,7 @@
               <button
                 class="chip import-btn"
                 type="button"
-                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；會依檔案格式自動放進對的分頁"
+                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json／.xixi-style.json；會依檔案格式自動放進對的分頁"
               >
                 匯入檔案
               </button>
@@ -145,7 +162,7 @@
               <button
                 class="chip import-btn"
                 type="button"
-                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json；會依檔案格式自動放進對的分頁"
+                title="選一個或多個 .xixi-filter.json／.xixi-beauty.json／.xixi-style.json；會依檔案格式自動放進對的分頁"
               >
                 匯入檔案
               </button>
